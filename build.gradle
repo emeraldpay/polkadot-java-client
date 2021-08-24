@@ -1,7 +1,4 @@
 buildscript {
-    repositories {
-        maven { url "https://dl.bintray.com/nebula/gradle-plugins" }
-    }
 
     dependencies {
         classpath 'com.netflix.nebula:gradle-aggregate-javadocs-plugin:3.0.1'
@@ -18,7 +15,7 @@ apply plugin: 'jacoco'
 
 allprojects {
     group = 'io.emeraldpay.polkaj'
-    version = "0.4.0-SNAPSHOT"
+    version = "0.5.0-SNAPSHOT"
 
     repositories {
         mavenLocal()
@@ -28,132 +25,7 @@ allprojects {
         //for java-multibase
         maven { url 'https://jitpack.io' }
     }
-}
 
-subprojects {
-    apply plugin: 'java'
-    apply plugin: 'java-library'
-    apply plugin: 'maven'
-    apply plugin: 'maven-publish'
-    apply plugin: 'groovy'
-    apply plugin: 'jacoco'
-    apply plugin: 'com.jfrog.bintray'
-
-    targetCompatibility = '11'
-    sourceCompatibility = '11'
-
-    [compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
-
-    compileJava.options.compilerArgs \
-        << '-Xlint:unchecked' << '-Xlint:deprecation'
-
-    dependencies {
-        testImplementation 'org.objenesis:objenesis:3.1'
-        testImplementation ('org.spockframework:spock-core:2.0-M2-groovy-3.0') {
-            exclude group: 'org.codehaus.groovy'
-        }
-        testImplementation "nl.jqno.equalsverifier:equalsverifier:3.3"
-        testImplementation 'org.codehaus.groovy:groovy-all:3.0.3'
-        testImplementation 'commons-codec:commons-codec:1.14'
-        testImplementation 'cglib:cglib-nodep:3.3.0'
-    }
-
-    test {
-        jvmArgs '-ea'
-        systemProperty "java.library.path", file("${project.rootDir}/polkaj-schnorrkel/build/rust/release").absolutePath
-        useJUnitPlatform()
-        testLogging.showStandardStreams = true
-        testLogging.exceptionFormat = 'full'
-    }
-
-    jacocoTestReport {
-        reports {
-            xml.enabled true
-        }
-    }
-
-    test.finalizedBy jacocoTestReport
-
-    task sourcesJar(type: Jar, dependsOn: classes) {
-        classifier = 'sources'
-        from sourceSets.main.allSource
-    }
-
-    task javadocJar(type: Jar, dependsOn: javadoc) {
-        classifier = 'javadoc'
-        from javadoc.destinationDir
-    }
-
-    artifacts {
-        archives sourcesJar
-        archives javadocJar
-    }
-
-    jacoco {
-        toolVersion = "0.8.5"
-    }
-
-    publishing {
-        publications {
-            mavenJava(MavenPublication) {
-                groupId project.group
-                artifactId project.name
-                version project.version
-
-                from components.java
-                versionMapping {
-                    usage('java-api') {
-                        fromResolutionOf('runtimeClasspath')
-                    }
-                    usage('java-runtime') {
-                        fromResolutionResult()
-                    }
-                }
-                pom {
-                    name = 'Polkadot Java Client'
-                    description = 'Java client library to access Polkadot based networks'
-                    licenses {
-                        license {
-                            name = 'The Apache License, Version 2.0'
-                            url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    bintray {
-        user = System.getenv('BINTRAY_USER')
-        key = System.getenv('BINTRAY_API_KEY')
-
-        dryRun=false
-        publish=true
-        override=true
-
-        publications = ['mavenJava']
-
-        pkg {
-            userOrg = 'emerald'
-            repo = 'polkaj'
-            name = project.name
-            licenses = ['Apache-2.0']
-            vcsUrl = 'https://github.com/emeraldpay/polkaj.git'
-            labels = ['polkadot', 'blockchain']
-            publicDownloadNumbers = true
-
-            version {
-                name = project.version
-                description = 'PolkaJ ' + project.version
-                released  = new Date()
-                vcsTag = project.version
-
-                gpg {
-                    sign = true
-                }
-            }
-        }
-    }
 }
 
 jacoco {
@@ -161,15 +33,11 @@ jacoco {
 }
 
 task coverageReport(type: JacocoReport) {
-    dependsOn = subprojects.test
-    additionalSourceDirs.setFrom files(subprojects.sourceSets.main.allSource.srcDirs)
-    sourceDirectories.setFrom files(subprojects.sourceSets.main.allSource.srcDirs)
-    classDirectories.setFrom files(subprojects.sourceSets.main.output)
     executionData.setFrom project.fileTree(dir: '.', include: '**/build/jacoco/test.exec')
     reports {
+        html.enabled true
         xml.enabled true
         csv.enabled false
-        html.enabled true
     }
 }
 

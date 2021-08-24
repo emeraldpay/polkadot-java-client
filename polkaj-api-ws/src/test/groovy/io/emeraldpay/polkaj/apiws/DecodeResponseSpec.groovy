@@ -151,7 +151,7 @@ class DecodeResponseSpec extends Specification {
         def act = decoder.decode(json)
         then:
         act.type == WsResponse.Type.SUBSCRIPTION
-        PolkadotWsApi.SubscriptionResponse event = act.asEvent()
+        JavaHttpSubscriptionAdapter.SubscriptionResponse event = act.asEvent()
         event.method == "chain_newHead"
         event.id == "EsqruyKPnZvPZ6fr"
         event.value instanceof BlockJson.Header
@@ -187,7 +187,7 @@ class DecodeResponseSpec extends Specification {
         def act = decoder.decode(json)
         then:
         act.type == WsResponse.Type.SUBSCRIPTION
-        PolkadotWsApi.SubscriptionResponse event = act.asEvent()
+        JavaHttpSubscriptionAdapter.SubscriptionResponse event = act.asEvent()
         event.method == "chain_newHead"
         event.id == "EsqruyKPnZvPZ6fr"
         event.value instanceof BlockJson.Header
@@ -224,7 +224,7 @@ class DecodeResponseSpec extends Specification {
         def act = decoder.decode(json)
         then:
         act.type == WsResponse.Type.SUBSCRIPTION
-        PolkadotWsApi.SubscriptionResponse event = act.asEvent()
+        JavaHttpSubscriptionAdapter.SubscriptionResponse event = act.asEvent()
         event.method == "state_storage"
         event.id == "EKMIn5gSrVmo1cgU"
         event.value instanceof StorageChangeSetJson

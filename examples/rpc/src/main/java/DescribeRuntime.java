@@ -1,9 +1,9 @@
+import io.emeraldpay.polkaj.api.PolkadotApi;
 import io.emeraldpay.polkaj.api.StandardCommands;
-import io.emeraldpay.polkaj.apihttp.PolkadotHttpApi;
+import io.emeraldpay.polkaj.apihttp.JavaHttpAdapter;
 import io.emeraldpay.polkaj.scale.ScaleExtract;
 import io.emeraldpay.polkaj.scaletypes.Metadata;
 import io.emeraldpay.polkaj.scaletypes.MetadataReader;
-import io.emeraldpay.polkaj.types.ByteData;
 
 import java.util.concurrent.Future;
 
@@ -13,8 +13,10 @@ import java.util.concurrent.Future;
 public class DescribeRuntime {
 
     public static void main(String[] args) throws Exception {
-        PolkadotHttpApi client = PolkadotHttpApi.newBuilder().build();
-        Future<Metadata> metadataFuture = client.execute(StandardCommands.getInstance().stateMetadata())
+        PolkadotApi api = PolkadotApi.newBuilder()
+                .rpcCallAdapter(JavaHttpAdapter.newBuilder().build())
+                .build();
+        Future<Metadata> metadataFuture = api.execute(StandardCommands.getInstance().stateMetadata())
                 .thenApply(ScaleExtract.fromBytesData(new MetadataReader()));
 
         System.out.println("Runtime Metadata:");
@@ -36,6 +38,6 @@ public class DescribeRuntime {
                 });
             }
         });
-        client.close();
+        api.close();
     }
 }

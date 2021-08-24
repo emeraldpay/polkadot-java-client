@@ -11,13 +11,13 @@ public class DefaultSubscription<T> implements Subscription<T>, Consumer<Subscri
     private String id;
     private final JavaType type;
     private final String unsubscribeMethod;
-    private final PolkadotWsApi client;
+    private final JavaHttpSubscriptionAdapter adapter;
     private Consumer<? extends Event<? extends T>> handlers;
 
-    public DefaultSubscription(JavaType type, String unsubscribeMethod, PolkadotWsApi client) {
+    public DefaultSubscription(JavaType type, String unsubscribeMethod, JavaHttpSubscriptionAdapter client) {
         this.type = type;
         this.unsubscribeMethod = unsubscribeMethod;
-        this.client = client;
+        this.adapter = client;
     }
 
     public String getId() {
@@ -50,12 +50,12 @@ public class DefaultSubscription<T> implements Subscription<T>, Consumer<Subscri
     }
 
     @Override
-    public void close() throws Exception {
+    public void close(){
         if (id == null) {
             return;
         }
-        client.execute(RpcCall.create(Boolean.class, unsubscribeMethod, id));
-        client.removeSubscription(id);
+        adapter.produceRpcFuture(RpcCall.create(Boolean.class, unsubscribeMethod, id));
+        adapter.removeSubscription(id);
     }
 
 }

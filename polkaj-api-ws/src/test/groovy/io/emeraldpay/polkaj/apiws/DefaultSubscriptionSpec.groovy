@@ -1,5 +1,6 @@
 package io.emeraldpay.polkaj.apiws
 
+import io.emeraldpay.polkaj.api.PolkadotApi
 import io.emeraldpay.polkaj.api.RpcCall
 import io.emeraldpay.polkaj.api.Subscription
 import spock.lang.Specification
@@ -43,24 +44,26 @@ class DefaultSubscriptionSpec extends Specification {
 
     def "Close unsubscribes and self-removes"() {
         setup:
-        def client = Mock(PolkadotWsApi)
+        def adapter = Mock(JavaHttpSubscriptionAdapter)
+        def client = Mock(PolkadotApi)
         when:
-        def s = new DefaultSubscription(null, "untest", client)
+        def s = new DefaultSubscription(null, "untest", adapter)
         s.setId("EsqruyKPnZvPZ6fr")
         s.close()
         then:
-        1 * client.execute(RpcCall.create(Boolean.class, "untest", ["EsqruyKPnZvPZ6fr"])) >> CompletableFuture.completedFuture(true)
-        1 * client.removeSubscription("EsqruyKPnZvPZ6fr")
+        1 * adapter.produceRpcFuture(RpcCall.create(Boolean.class, "untest", ["EsqruyKPnZvPZ6fr"])) >> CompletableFuture.completedFuture(true)
+        1 * adapter.removeSubscription("EsqruyKPnZvPZ6fr")
     }
 
     def "Close does nothing if not initialized"() {
         setup:
-        def client = Mock(PolkadotWsApi)
+        def adapter = Mock(JavaHttpSubscriptionAdapter)
+        def client = Mock(PolkadotApi)
         when:
-        def s = new DefaultSubscription(null, "untest", client)
+        def s = new DefaultSubscription(null, "untest", adapter)
         s.close()
         then:
         0 * client.execute(_) >> CompletableFuture.completedFuture(false)
-        0 * client.removeSubscription(_)
+        0 * adapter.removeSubscription(_)
     }
 }

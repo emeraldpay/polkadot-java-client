@@ -7,13 +7,25 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public abstract class AbstractPolkadotApi implements PolkadotApi {
+public class RpcCoder {
 
-    protected final AtomicInteger id = new AtomicInteger(0);
-    protected final ObjectMapper objectMapper;
+    private final ObjectMapper objectMapper;
+    private final AtomicInteger id = new AtomicInteger(0);
 
-    public AbstractPolkadotApi(ObjectMapper objectMapper) {
+    public RpcCoder(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
+    }
+
+    public int nextId() {
+        return id.getAndIncrement();
+    }
+
+    public void resetId(){
+        id.set(0);
+    }
+
+    public ObjectMapper getObjectMapper() {
+        return objectMapper;
     }
 
     public JavaType responseType(JavaType resultType) {
@@ -22,10 +34,6 @@ public abstract class AbstractPolkadotApi implements PolkadotApi {
 
     public JavaType responseType(Class<?> resultClazz) {
         return objectMapper.getTypeFactory().constructType(resultClazz);
-    }
-
-    public int nextId() {
-        return id.getAndIncrement();
     }
 
     /**
@@ -38,7 +46,7 @@ public abstract class AbstractPolkadotApi implements PolkadotApi {
      * @return The decoded result
      * @throws CompletionException with RpcException details to let executor know that the response is invalid
      */
-    public <T> T decode(int id, String content, JavaType clazz) {
+    final public <T> T decode(int id, String content, JavaType clazz) {
         JavaType type = objectMapper.getTypeFactory().constructParametricType(RpcResponse.class, clazz);
         RpcResponse<T> response;
         try {
@@ -65,13 +73,12 @@ public abstract class AbstractPolkadotApi implements PolkadotApi {
      * Encode RPC request as JSON
      *
      * @param id id of the request
-     * @param method method name
-     * @param params params
+     * @param call the RpcCall to encode
      * @return full JSON of the request
      * @throws JsonProcessingException if cannot encode some of the params into JSON
      */
-    public byte[] encode(int id, String method, Object[] params) throws JsonProcessingException {
-        RpcRequest request = new RpcRequest(id, method, params);
+    final public <T> byte[] encode(int id, RpcCall<T> call) throws JsonProcessingException {
+        RpcRequest request = new RpcRequest(id, call.getMethod(), call.getParams());
         return objectMapper.writeValueAsBytes(request);
     }
 }

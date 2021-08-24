@@ -1,6 +1,15 @@
+apply from: '../common_java_app.gradle'
+
+compileJava {
+    targetCompatibility = '11'
+    sourceCompatibility = '11'
+}
+
+
 dependencies {
     api project(":polkaj-json-types")
     api project(":polkaj-api-base")
 
     testImplementation 'org.java-websocket:Java-WebSocket:1.5.1'
+    testImplementation project(":polkaj-adapter-tests")
 }

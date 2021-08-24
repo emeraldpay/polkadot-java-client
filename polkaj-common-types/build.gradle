@@ -1,3 +1,5 @@
+apply from: '../common_java_app.gradle'
+
 dependencies {
     api project(":polkaj-ss58")
 }

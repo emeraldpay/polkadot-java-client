@@ -2,7 +2,7 @@ package example.rtweb.service;
 
 import io.emeraldpay.polkaj.api.PolkadotApi;
 import io.emeraldpay.polkaj.api.StandardCommands;
-import io.emeraldpay.polkaj.apihttp.PolkadotHttpApi;
+import io.emeraldpay.polkaj.apihttp.JavaHttpAdapter;
 import io.emeraldpay.polkaj.scale.ScaleExtract;
 import io.emeraldpay.polkaj.scaletypes.Metadata;
 import io.emeraldpay.polkaj.scaletypes.MetadataReader;
@@ -18,7 +18,9 @@ public class MetadataService {
 
     @PostConstruct
     public void init() {
-        api = PolkadotHttpApi.newBuilder().build();
+        api = PolkadotApi.newBuilder()
+                .rpcCallAdapter(JavaHttpAdapter.newBuilder().build())
+                .build();
     }
 
     public Metadata get() {

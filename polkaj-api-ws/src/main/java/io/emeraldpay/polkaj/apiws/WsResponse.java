@@ -5,7 +5,7 @@ import io.emeraldpay.polkaj.api.RpcResponse;
 /**
  * Container for the WebSocker message. A message may be a subscription event, or a response to a standard RPC call.
  *
- * @see PolkadotWsApi.SubscriptionResponse
+ * @see JavaHttpSubscriptionAdapter.SubscriptionResponse
  * @see RpcResponse
  */
 public class WsResponse {
@@ -38,11 +38,11 @@ public class WsResponse {
      * Make sure the value is SubscriptionResponse and return it
      * @return value as event
      */
-    public PolkadotWsApi.SubscriptionResponse<?> asEvent() {
+    public JavaHttpSubscriptionAdapter.SubscriptionResponse<?> asEvent() {
         if (type != Type.SUBSCRIPTION) {
             throw new ClassCastException("Not an event");
         }
-        return (PolkadotWsApi.SubscriptionResponse<?>) value;
+        return (JavaHttpSubscriptionAdapter.SubscriptionResponse<?>) value;
     }
 
     /**
@@ -62,7 +62,7 @@ public class WsResponse {
      * @param event event data
      * @return response instance configured for Subscription Event
      */
-    public static WsResponse subscription(PolkadotWsApi.SubscriptionResponse<?> event) {
+    public static WsResponse subscription(JavaHttpSubscriptionAdapter.SubscriptionResponse<?> event) {
         return new WsResponse(Type.SUBSCRIPTION, event);
     }
 

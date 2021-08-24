@@ -19,17 +19,17 @@ import java.io.IOException;
  */
 public class DecodeResponse {
 
-    private final ObjectMapper objectMapper;
     private final TypeMapping<String> subscriptionMapping;
     private final TypeMapping<Integer> rpcMapping;
+    private final ObjectMapper objectMapper;
 
     public DecodeResponse(ObjectMapper objectMapper, TypeMapping<Integer> rpcMapping, TypeMapping<String> subscriptionMapping) {
-        this.objectMapper = objectMapper;
         this.rpcMapping = rpcMapping;
         this.subscriptionMapping = subscriptionMapping;
+        this.objectMapper = objectMapper;
     }
 
-    public <T> WsResponse decode(String json) throws IOException {
+    public WsResponse decode(final String json) throws IOException {
         JsonFactory jsonFactory = objectMapper.getFactory();
         JsonParser parser = jsonFactory.createParser(json);
         if (parser.nextToken() != JsonToken.START_OBJECT) {
@@ -74,14 +74,14 @@ public class DecodeResponse {
                 method = parser.getValueAsString();
                 if (value != null) {
                     return WsResponse.subscription(
-                            new PolkadotWsApi.SubscriptionResponse<>(value.getId(), method, value.getValue())
+                            new JavaHttpSubscriptionAdapter.SubscriptionResponse<>(value.getId(), method, value.getValue())
                     );
                 }
             } else if ("params".equals(field)) {
                 value = decodeSubscription(subscriptionMapping, parser);
                 if (method != null) {
                     return WsResponse.subscription(
-                            new PolkadotWsApi.SubscriptionResponse<>(value.getId(), method, value.getValue())
+                            new JavaHttpSubscriptionAdapter.SubscriptionResponse<>(value.getId(), method, value.getValue())
                     );
                 }
             }
@@ -192,7 +192,7 @@ public class DecodeResponse {
                 throw new IllegalStateException("Id is not set");
             }
             if (error != null) {
-                return new WsResponse.IdValue<T>(id, error);
+                return new WsResponse.IdValue<>(id, error);
             }
             if (type == null) {
                 throw new IllegalStateException("Type is not set");
@@ -201,7 +201,7 @@ public class DecodeResponse {
                 Object value = objectMapper
                         .readerFor(type)
                         .readValue(node.traverse(objectMapper));
-                return new WsResponse.IdValue<T>(id, value);
+                return new WsResponse.IdValue<>(id, value);
             }
             throw new IllegalStateException("Not ready");
         }

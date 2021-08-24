@@ -10,11 +10,13 @@ For the query it encodes request to storage function `TotalIssuance` of the modu
 
 [source, java]
 ----
+final JavaHttpSubscriptionAdapter adapter = JavaHttpSubscriptionAdapter .newBuilder()
+    .connectTo("wss://cc3-5.kusama.network")
+    .build();
 try (
-  PolkadotHttpApi client = PolkadotWsApi.newBuilder()
-        .connectTo("wss://cc3-5.kusama.network")
-        .build()
-) {
+    PolkadotApi client = PolkadotApi.newBuilder().subscriptionAdapter(adapter).build())
+).build()) {
+    System.out.println("Connected: " + adapter.connect().get());
     DotAmount total = AccountRequests.totalIssuance()
         // execute on RPC
         .execute(client)
@@ -35,7 +37,8 @@ For the query it encodes request to storage function `System` of the module `Acc
 [source, java]
 ----
 try (
-  PolkadotHttpApi client = PolkadotWsApi.newBuilder()
+    PolkadotApi client =PolkadotApi.newBuilder().rpcCallAdapter(
+        JavaHttpAdapter.newBuilder()
         .connectTo("wss://cc3-5.kusama.network")
         .build()
 ) {
@@ -69,7 +72,8 @@ To make a valid extrinsic, it also needs the current Runtime Metadata and Extrin
 [source, java]
 ----
 try (
-  PolkadotHttpApi client = PolkadotWsApi.newBuilder()
+    PolkadotApi client =PolkadotApi.newBuilder().rpcCallAdapter(
+        JavaHttpAdapter.newBuilder()
         .connectTo("wss://cc3-5.kusama.network")
         .build()
 ) {

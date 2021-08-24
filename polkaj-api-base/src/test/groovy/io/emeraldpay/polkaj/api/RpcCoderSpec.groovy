@@ -6,37 +6,36 @@ import io.emeraldpay.polkaj.json.BlockResponseJson
 import io.emeraldpay.polkaj.json.jackson.PolkadotModule
 import spock.lang.Specification
 
-import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionException
 
-class AbstractPolkadotApiSpec extends Specification {
+class RpcCoderSpec extends Specification {
 
-    AbstractPolkadotApi client = new TestingPolkadotApi(new ObjectMapper().tap { registerModule(new PolkadotModule())})
+    RpcCoder rpcCoder = new RpcCoder(new ObjectMapper().tap { registerModule(new PolkadotModule())})
 
     def "Encode empty params request"() {
         when:
-        def act = client.encode(1, "test_foo")
+        def act = rpcCoder.encode(1, RpcCall.create(Void.class, "test_foo"))
         then:
         new String(act) == '{"jsonrpc":"2.0","id":1,"method":"test_foo","params":[]}'
     }
 
     def "Encode single param request"() {
         when:
-        def act = client.encode(1, "test_foo", "hello")
+        def act = rpcCoder.encode(1, RpcCall.create(Void.class, "test_foo", "hello"))
         then:
         new String(act) == '{"jsonrpc":"2.0","id":1,"method":"test_foo","params":["hello"]}'
     }
 
     def "Encode multi params request"() {
         when:
-        def act = client.encode(2, "test_foo", Hash256.from("0x5d83f66b61701da4cbd7a60137db89c69469a4f798b62aba9176ab253b423828"), 100, false)
+        def act = rpcCoder.encode(2, RpcCall.create(Void.class,"test_foo", Hash256.from("0x5d83f66b61701da4cbd7a60137db89c69469a4f798b62aba9176ab253b423828"), 100, false))
         then:
         new String(act) == '{"jsonrpc":"2.0","id":2,"method":"test_foo","params":["0x5d83f66b61701da4cbd7a60137db89c69469a4f798b62aba9176ab253b423828",100,false]}'
     }
 
     def "Encode object params request"() {
         when:
-        def act = client.encode(3, "test_foo", [foo: "bar", baz: 1])
+        def act = rpcCoder.encode(3, RpcCall.create(Void.class,"test_foo", [foo: "bar", baz: 1]))
         then:
         new String(act) == '{"jsonrpc":"2.0","id":3,"method":"test_foo","params":[{"foo":"bar","baz":1}]}'
     }
@@ -49,7 +48,7 @@ class AbstractPolkadotApiSpec extends Specification {
                 '  "id": 0\n' +
                 '}'
         when:
-        def act = client.decode(0, response, client.responseType(String))
+        def act = rpcCoder.decode(0, response, rpcCoder.responseType(String))
         then:
         act == '0x5d83f66b61701da4cbd7a60137db89c69469a4f798b62aba9176ab253b423828'
     }
@@ -62,7 +61,7 @@ class AbstractPolkadotApiSpec extends Specification {
                 '  "id": 0\n' +
                 '}'
         when:
-        def act = client.decode(0, response, client.responseType(BlockResponseJson))
+        def act = rpcCoder.decode(0, response, rpcCoder.responseType(BlockResponseJson))
         then:
         act == null
     }
@@ -75,7 +74,7 @@ class AbstractPolkadotApiSpec extends Specification {
                 '  "id": 0\n' +
                 '}'
         when:
-        def act = client.decode(0, response, client.responseType(Hash256))
+        def act = rpcCoder.decode(0, response, rpcCoder.responseType(Hash256))
         then:
         act == Hash256.from('0x5d83f66b61701da4cbd7a60137db89c69469a4f798b62aba9176ab253b423828')
     }
@@ -88,7 +87,7 @@ class AbstractPolkadotApiSpec extends Specification {
                 '  "id": 0\n' +
                 '}'
         when:
-        client.decode(0, response, client.responseType(BlockResponseJson))
+        rpcCoder.decode(0, response, rpcCoder.responseType(BlockResponseJson))
         then:
         def t = thrown(CompletionException)
         t.cause instanceof RpcException
@@ -108,7 +107,7 @@ class AbstractPolkadotApiSpec extends Specification {
                 '  "id": 0\n' +
                 '}'
         when:
-        client.decode(1, response, client.responseType(String))
+        rpcCoder.decode(1, response, rpcCoder.responseType(String))
         then:
         def t = thrown(CompletionException)
         t.cause instanceof RpcException
@@ -124,7 +123,7 @@ class AbstractPolkadotApiSpec extends Specification {
         setup:
         def response = '{\n  "jsonrpc": "2'
         when:
-        client.decode(1, response, client.responseType(String))
+        rpcCoder.decode(1, response, rpcCoder.responseType(String))
         then:
         def t = thrown(CompletionException)
         t.cause instanceof RpcException
@@ -136,14 +135,4 @@ class AbstractPolkadotApiSpec extends Specification {
         }
     }
 
-    class TestingPolkadotApi extends AbstractPolkadotApi {
-        TestingPolkadotApi(ObjectMapper objectMapper) {
-            super(objectMapper)
-        }
-
-        @Override
-        def <T> CompletableFuture<T> execute(RpcCall<T> call) {
-            throw new UnsupportedOperationException("Execute is not implemented for the test")
-        }
-    }
 }

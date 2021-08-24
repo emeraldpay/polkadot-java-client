@@ -5,7 +5,8 @@ import java.util.concurrent.CompletableFuture;
 /**
  * @see PolkadotMethod
  */
-public interface PolkadotSubscriptionApi {
+public interface SubscriptionAdapter extends RpcCallAdapter{
+
 
     /**
      * Subscribe to a method that provides multiple responses
@@ -23,4 +24,6 @@ public interface PolkadotSubscriptionApi {
     public static StandardSubscriptions subscriptions() {
         return StandardSubscriptions.getInstance();
     }
+
+
 }

@@ -1,6 +1,5 @@
 import io.emeraldpay.polkaj.api.*;
-import io.emeraldpay.polkaj.apiws.PolkadotWsApi;
-import io.emeraldpay.polkaj.json.RuntimeVersionJson;
+import io.emeraldpay.polkaj.apiws.JavaHttpSubscriptionAdapter;
 import io.emeraldpay.polkaj.scale.ScaleExtract;
 import io.emeraldpay.polkaj.scaletypes.AccountInfo;
 import io.emeraldpay.polkaj.scaletypes.Metadata;
@@ -50,8 +49,9 @@ public class Transfer {
                 Math.abs(random.nextLong()) % DotAmount.fromDots(0.002).getValue().longValue()
         );
 
-        try (PolkadotWsApi client = PolkadotWsApi.newBuilder().connectTo(api).build()) {
-            System.out.println("Connected: " + client.connect().get());
+        final JavaHttpSubscriptionAdapter adapter = JavaHttpSubscriptionAdapter.newBuilder().connectTo(api).build();
+        try (PolkadotApi client = PolkadotApi.newBuilder().subscriptionAdapter(adapter).build()) {
+            System.out.println("Connected: " + adapter.connect().get());
 
             // Subscribe to block heights
             AtomicLong height = new AtomicLong(0);

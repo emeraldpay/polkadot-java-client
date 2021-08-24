@@ -14,22 +14,21 @@ import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * WebSocket based client to Polkadot API. In addition to standard RPC calls it supports subscription to events, i.e.
  * when a call provides multiple responses.
  * <br>
- * Before making calls, a {@link PolkadotWsApi#connect()} must be called to establish a connection.
+ * Before making calls, a {@link JavaHttpSubscriptionAdapter#connect()} must be called to establish a connection.
  */
-public class PolkadotWsApi extends AbstractPolkadotApi implements AutoCloseable, PolkadotSubscriptionApi {
+public class JavaHttpSubscriptionAdapter implements SubscriptionAdapter, RpcCallAdapter {
 
-    private final AtomicInteger id = new AtomicInteger(0);
     private final AtomicReference<WebSocket> webSocket = new AtomicReference<>(null);
     private final ConcurrentHashMap<Integer, RequestExpectation<?>> execution = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, DefaultSubscription<?>> subscriptions = new ConcurrentHashMap<>();
     private final URI target;
+    private final RpcCoder rpcCoder;
     private final DecodeResponse decodeResponse;
     private final HttpClient httpClient;
     private final Runnable onClose;
@@ -37,8 +36,7 @@ public class PolkadotWsApi extends AbstractPolkadotApi implements AutoCloseable,
     private final ScheduledExecutorService control = Executors.newSingleThreadScheduledExecutor();
     private final MessageBuffer messageBuffer = new MessageBuffer();
 
-    private PolkadotWsApi(URI target, HttpClient httpClient, ObjectMapper objectMapper, Runnable onClose) {
-        super(objectMapper);
+    private JavaHttpSubscriptionAdapter(URI target, HttpClient httpClient, Runnable onClose, RpcCoder rpcCoder) {
         this.target = target;
         this.httpClient = httpClient;
         this.onClose = onClose;
@@ -62,7 +60,8 @@ public class PolkadotWsApi extends AbstractPolkadotApi implements AutoCloseable,
                 return x.getType();
             }
         };
-        this.decodeResponse = new DecodeResponse(objectMapper, rpcMapping, subMapping);
+        this.rpcCoder = rpcCoder;
+        this.decodeResponse = new DecodeResponse(rpcCoder.getObjectMapper(), rpcMapping, subMapping);
     }
 
     public static Builder newBuilder() {
@@ -91,7 +90,7 @@ public class PolkadotWsApi extends AbstractPolkadotApi implements AutoCloseable,
             }
             execution.clear();
             subscriptions.clear();
-            id.set(0);
+            rpcCoder.resetId();
 
             // need to send ping, otherwise remote can drop the connection
             control.scheduleAtFixedRate(() -> {
@@ -103,7 +102,7 @@ public class PolkadotWsApi extends AbstractPolkadotApi implements AutoCloseable,
         })).thenCombine(whenConnected, (webSocket, isOpen) -> isOpen);
     }
 
-    protected WebSocket.Listener newListener(final CompletableFuture<Boolean> whenConnected) {
+    private WebSocket.Listener newListener(final CompletableFuture<Boolean> whenConnected) {
         return new WebSocket.Listener() {
             @Override
             public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
@@ -139,29 +138,33 @@ public class PolkadotWsApi extends AbstractPolkadotApi implements AutoCloseable,
             public CompletionStage<?> onPing(WebSocket webSocket, ByteBuffer message) {
                 return webSocket.sendPong(message);
             }
+
         };
     }
 
     @Override
-    public <T> CompletableFuture<T> execute(RpcCall<T> call) {
-        int id = this.id.getAndIncrement();
+    public <T> CompletableFuture<T> produceRpcFuture(final RpcCall<T> call) {
+        int id = rpcCoder.nextId();
         byte[] payload;
+        final ObjectMapper objectMapper = rpcCoder.getObjectMapper();
         try {
-            payload = encode(id, call.getMethod(), call.getParams());
+            payload = rpcCoder.encode(id, call);
         } catch (JsonProcessingException e) {
             return CompletableFuture.failedFuture(e);
         }
         CompletableFuture<T> whenResponseReceived = new CompletableFuture<>();
-        execution.put(id, new RequestExpectation<T>(responseType(call.getResultType(objectMapper.getTypeFactory())), whenResponseReceived));
+        execution.put(id, new RequestExpectation<>(rpcCoder.responseType(
+                call.getResultType(objectMapper.getTypeFactory())), whenResponseReceived));
         return webSocket.get()
                 .sendText(new String(payload), true)
                 .thenCombine(whenResponseReceived, (a, b) -> b);
     }
 
+
     @Override
-    public <T> CompletableFuture<Subscription<T>> subscribe(SubscribeCall<T> call) {
-        var subscription = new DefaultSubscription<T>(call.getResultType(objectMapper.getTypeFactory()), call.getUnsubscribe(), this);
-        var start = this.execute(RpcCall.create(String.class, call.getMethod(), call.getParams()));
+    public <T> CompletableFuture<Subscription<T>> subscribe(final SubscribeCall<T> call) {
+        var subscription = new DefaultSubscription<T>(call.getResultType(rpcCoder.getObjectMapper().getTypeFactory()), call.getUnsubscribe(),this);
+        var start = this.produceRpcFuture(RpcCall.create(String.class, call.getMethod(), call.getParams()));
         return start.thenApply(id -> {
             subscriptions.put(id, subscription);
             subscription.setId(id);
@@ -194,7 +197,7 @@ public class PolkadotWsApi extends AbstractPolkadotApi implements AutoCloseable,
         if (s == null) {
             return;
         }
-        s.accept(new Subscription.Event<T>(response.method, response.value));
+        s.accept(new Subscription.Event<>(response.method, response.value));
     }
 
     public boolean removeSubscription(String id) {
@@ -202,7 +205,7 @@ public class PolkadotWsApi extends AbstractPolkadotApi implements AutoCloseable,
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         webSocket.updateAndGet(old -> {
             if (old != null) {
                 old.sendClose(WebSocket.NORMAL_CLOSURE, "close");
@@ -282,8 +285,8 @@ public class PolkadotWsApi extends AbstractPolkadotApi implements AutoCloseable,
         private URI target;
         private ExecutorService executorService;
         private HttpClient httpClient;
+        private RpcCoder rpcCoder;
         private Runnable onClose;
-        private ObjectMapper objectMapper;
 
         /**
          * Server address URL
@@ -292,7 +295,7 @@ public class PolkadotWsApi extends AbstractPolkadotApi implements AutoCloseable,
          * @return builder
          * @throws URISyntaxException if specified url is invalid
          */
-        public PolkadotWsApi.Builder connectTo(String target) throws URISyntaxException {
+        public JavaHttpSubscriptionAdapter.Builder connectTo(String target) throws URISyntaxException {
             return this.connectTo(new URI(target));
         }
 
@@ -302,7 +305,7 @@ public class PolkadotWsApi extends AbstractPolkadotApi implements AutoCloseable,
          * @param target URL
          * @return builder
          */
-        public PolkadotWsApi.Builder connectTo(URI target) {
+        public JavaHttpSubscriptionAdapter.Builder connectTo(URI target) {
             this.httpClient = null;
             this.target = target;
             return this;
@@ -314,7 +317,7 @@ public class PolkadotWsApi extends AbstractPolkadotApi implements AutoCloseable,
          * @param httpClient client
          * @return builder
          */
-        public PolkadotWsApi.Builder httpClient(HttpClient httpClient) {
+        public JavaHttpSubscriptionAdapter.Builder httpClient(HttpClient httpClient) {
             if (this.executorService != null) {
                 throw new IllegalStateException("Custom HttpClient cannot be used with separate Executor");
             }
@@ -328,53 +331,55 @@ public class PolkadotWsApi extends AbstractPolkadotApi implements AutoCloseable,
          * @param executorService executor
          * @return builder
          */
-        public PolkadotWsApi.Builder executor(ExecutorService executorService) {
+        public JavaHttpSubscriptionAdapter.Builder executor(ExecutorService executorService) {
             if (this.httpClient != null) {
                 throw new IllegalStateException("Custom HttpClient cannot be used with separate Executor");
             }
             this.executorService = executorService;
-            if (this.onClose != null) {
-                this.onClose.run();
-            }
-            this.onClose = null;
             return this;
         }
 
         /**
-         * Provide a custom ObjectMapper that will be used to encode/decode request and responses.
+         * Provide custom cleanup method.
          *
-         * @param objectMapper ObjectMapper
+         * @param onClose to be called on close.
          * @return builder
          */
-        public PolkadotWsApi.Builder objectMapper(ObjectMapper objectMapper) {
-            this.objectMapper = objectMapper;
+        public Builder onClose(Runnable onClose){
+            this.onClose = onClose;
             return this;
         }
 
-        protected void initDefaults() {
+        /**
+         * Provide a custom RpcCoder for rpc serialization.
+         *
+         * @param rpcCoder rpcCoder
+         * @return builder
+         */
+        public JavaHttpSubscriptionAdapter.Builder rpcCoder(RpcCoder rpcCoder){
+            this.rpcCoder = rpcCoder;
+            return this;
+        }
+
+
+        private void initDefaults() {
+            if (rpcCoder == null) {
+                final ObjectMapper objectMapper = new ObjectMapper();
+                objectMapper.registerModule(new PolkadotModule());
+                rpcCoder = new RpcCoder(objectMapper);
+            }
             if (httpClient == null && target == null) {
                 try {
                     connectTo("ws://127.0.0.1:9944");
-                } catch (URISyntaxException e) { }
+                } catch (URISyntaxException e) {
+                    //wont happen
+                }
             }
             if (executorService == null) {
                 ExecutorService executorService = Executors.newCachedThreadPool();
                 this.executorService = executorService;
                 onClose = executorService::shutdownNow;
             }
-            if (objectMapper == null) {
-                objectMapper = new ObjectMapper();
-                objectMapper.registerModule(new PolkadotModule());
-            }
-        }
-
-        /**
-         * Apply configuration and build client
-         *
-         * @return new instance of PolkadotRpcClient
-         */
-        public PolkadotWsApi build() {
-            initDefaults();
 
             if (this.httpClient == null) {
                 httpClient = HttpClient.newBuilder()
@@ -383,11 +388,17 @@ public class PolkadotWsApi extends AbstractPolkadotApi implements AutoCloseable,
                         .followRedirects(HttpClient.Redirect.NEVER)
                         .build();
             }
-
-            return new PolkadotWsApi(target, httpClient, objectMapper, onClose);
         }
 
-
+        /**
+         * Apply configuration and build client
+         *
+         * @return new instance of PolkadotRpcClient
+         */
+        public JavaHttpSubscriptionAdapter build() {
+            initDefaults();
+            return new JavaHttpSubscriptionAdapter(target, httpClient, onClose, rpcCoder);
+        }
     }
 
 }

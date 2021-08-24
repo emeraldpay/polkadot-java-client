@@ -2,7 +2,7 @@
 // Common config for Polkaj Examples
 //
 ext {
-   polkajVersion = "0.4.0-SNAPSHOT"
+   polkajVersion = "0.5.0-SNAPSHOT"
 }
 
 repositories {

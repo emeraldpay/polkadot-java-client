@@ -1,4 +1,5 @@
-import io.emeraldpay.polkaj.apihttp.PolkadotHttpApi;
+import io.emeraldpay.polkaj.api.PolkadotApi;
+import io.emeraldpay.polkaj.apihttp.JavaHttpAdapter;
 import io.emeraldpay.polkaj.scaletypes.AccountInfo;
 import io.emeraldpay.polkaj.tx.AccountRequests;
 import io.emeraldpay.polkaj.types.Address;
@@ -8,7 +9,7 @@ import io.emeraldpay.polkaj.types.DotAmountFormatter;
 public class Balance {
 
     public static void main(String[] args) throws Exception {
-        try (PolkadotHttpApi client = PolkadotHttpApi.newBuilder().build()) {
+        try (PolkadotApi client = PolkadotApi.newBuilder().rpcCallAdapter(JavaHttpAdapter.newBuilder().build()).build()) {
             DotAmountFormatter formatter = DotAmountFormatter.autoFormatter();
 
             DotAmount total = AccountRequests.totalIssuance().execute(client).get();

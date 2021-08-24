@@ -1,12 +1,7 @@
 package io.emeraldpay.polkaj.schnorrkel;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodType;
-import java.lang.invoke.VarHandle;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.NoSuchAlgorithmException;
@@ -107,22 +102,22 @@ public class SchnorrkelNative extends Schnorrkel {
     private static final String LIBNAME = "polkaj_schnorrkel";
 
     static {
+
         try {
             // JVM needs native libraries to be loaded from filesystem, so first we need to extract
-            // files for current OS into a temp dir
-            extractJNI();
+            // files for current OS into a temp dir then load the file.
+            if(!extractAndLoadJNI()) {
+                // load the native library, this is for running tests
+                System.loadLibrary(LIBNAME);
+            }
         } catch (IOException e) {
             System.err.println("Failed to extract JNI library from Jar file. " + e.getClass() + ":" + e.getMessage());
-        }
-        try {
-            // load the native library
-            System.loadLibrary(LIBNAME);
-        } catch (UnsatisfiedLinkError e) {
+        } catch (UnsatisfiedLinkError e){
             System.err.println("Failed to load native library. Polkaj Schnorrkel methods are unavailable. Error: " + e.getMessage());
         }
     }
 
-    private static void extractJNI() throws IOException {
+    private static boolean extractAndLoadJNI() throws IOException {
         // define which of files bundled with Jar to extract
         String os = System.getProperty("os.name", "unknown").toLowerCase();
         if (os.contains("win")) {
@@ -133,47 +128,29 @@ public class SchnorrkelNative extends Schnorrkel {
             os = "linux";
         } else {
             System.err.println("Unknown OS: " + os + ". Unable to setup native library for Polkaj Schnorrkel");
-            return;
+            return false;
         }
         String filename = System.mapLibraryName(LIBNAME);
         String classpathFile = "/native/" + os + "/" + filename;
 
         // extract native lib to the filesystem
         InputStream lib = Schnorrkel.class.getResourceAsStream(classpathFile);
+        System.out.println(classpathFile);
         if (lib == null) {
             System.err.println("Library " + classpathFile + " is not found in the classpath");
-            return;
+            return false;
         }
         Path dir = Files.createTempDirectory(LIBNAME);
         Path target = dir.resolve(filename);
+
         Files.copy(lib, target);
+        System.load(target.toFile().getAbsolutePath());
+        System.out.println("library " + classpathFile + " is loaded");
 
         // setup JVM to delete files on exit, when possible
         target.toFile().deleteOnExit();
         dir.toFile().deleteOnExit();
-
-        // prepare new path to native libraries, including the directly with just extracted file
-        final String libraryPathProperty = "java.library.path";
-        String userLibs = System.getProperty(libraryPathProperty);
-        if (userLibs == null || "".equals(userLibs)) {
-            userLibs = dir.toAbsolutePath().toString();
-        } else {
-            userLibs = userLibs + File.pathSeparatorChar + dir.toAbsolutePath().toString();
-        }
-
-        // Update paths to search for native libraries
-        System.setProperty(libraryPathProperty, userLibs);
-        // But since it may be already processed and cached we need to update the current value
-        try {
-            MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(ClassLoader.class, MethodHandles.lookup());
-            VarHandle usrPathsField = lookup.findStaticVarHandle(ClassLoader.class,
-                    "usr_paths", String[].class);
-            MethodHandle initializePathMethod = lookup.findStatic(ClassLoader.class,
-                    "initializePath", MethodType.methodType(String[].class, String.class));
-            usrPathsField.set(initializePathMethod.invoke(libraryPathProperty));
-        } catch (Throwable e) {
-            System.err.println("Unable to update usr_paths field. " + e.getClass() + ":" + e.getMessage());
-        }
+        return true;
     }
 
 }

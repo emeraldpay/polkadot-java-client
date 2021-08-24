@@ -1,12 +1,11 @@
-import io.emeraldpay.polkaj.api.PolkadotSubscriptionApi;
-import io.emeraldpay.polkaj.api.SubscribeCall;
+import io.emeraldpay.polkaj.api.PolkadotApi;
 import io.emeraldpay.polkaj.api.Subscription;
-import io.emeraldpay.polkaj.apiws.PolkadotWsApi;
+import io.emeraldpay.polkaj.api.SubscriptionAdapter;
+import io.emeraldpay.polkaj.apiws.JavaHttpSubscriptionAdapter;
 import io.emeraldpay.polkaj.json.BlockJson;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -16,12 +15,15 @@ import java.util.concurrent.TimeoutException;
 public class FollowState {
 
     public static void main(String[] args) throws InterruptedException, ExecutionException, TimeoutException {
-        PolkadotWsApi client = PolkadotWsApi.newBuilder().build();
+        JavaHttpSubscriptionAdapter wsAdapter = JavaHttpSubscriptionAdapter.newBuilder().build();
+        PolkadotApi api = PolkadotApi.newBuilder()
+                .subscriptionAdapter(wsAdapter)
+                .build();
 
         // IMPORTANT! connect to the node as the first step before making calls or subscriptions.
-        client.connect().get(5, TimeUnit.SECONDS);
+        wsAdapter.connect().get(5, TimeUnit.SECONDS);
 
-        Future<Subscription<BlockJson.Header>> hashFuture = client.subscribe(PolkadotSubscriptionApi.subscriptions().newHeads());
+        Future<Subscription<BlockJson.Header>> hashFuture = api.subscribe(SubscriptionAdapter.subscriptions().newHeads());
 
         Subscription<BlockJson.Header> subscription = hashFuture.get(5, TimeUnit.SECONDS);
         subscription.handler((Subscription.Event<BlockJson.Header> event) -> {

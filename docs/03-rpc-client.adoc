@@ -113,9 +113,12 @@ dependencies {
 To create a new client:
 [source, java]
 ----
-import io.emeraldpay.polkaj.apihttp.PolkadotHttpApi;
+import io.emeraldpay.polkaj.api.PolkadotApi;
+import io.emeraldpay.polkaj.apihttp.JavaHttpAdapter;
 
-PolkadotHttpApi client = PolkadotHttpApi.newBuilder().build();
+PolkadotApi api = PolkadotApi.newBuilder()
+        .rpcCallAdapter(JavaHttpAdapter.newBuilder().build())
+        .build();
 ----
 
 The default configuration is going to connect to `http://127.0.0.1:9933`, which is a default configuration of a Polkadot node.
@@ -123,11 +126,14 @@ If you need to configure the client, follow the builder methods:
 
 [source, java]
 ----
-PolkadotHttpApi client = PolkadotHttpApi.newBuilder()
-        .objectMapper(objectMapper) // <1>
-        .connectTo("http://10.0.1.20:9333") // <2>
-        .basicAuth("alice", "secret") // <3>
+PolkadotApi api = PolkadotApi.newBuilder()
+        .rpcCallAdapter(JavaHttpAdapter.newBuilder()
+            .rpcCoder(new RpcCoder(objectMapper)) // <1>
+            .connectTo("http://10.0.1.20:9333") // <2>
+            .basicAuth("alice", "secret") // <3>
+            .build())
         .build();
+
 ----
 <1> Specify an existing ObjectMapper instance to use by the client
 <2> Connect to a node at `http://10.0.1.20:9333`
@@ -141,6 +147,7 @@ The `PolkadotApi` has the method `execute` that makes an actual call and returns
 ----
 interface PolkadotApi {
     <T> CompletableFuture<T> execute(RpcCall<T> call);
+    //...
 }
 ----
 
@@ -258,17 +265,23 @@ It allows subscribing to the events happening on the blockchain, such as changin
 
 [source, java]
 ----
-PolkadotWsApi client = PolkadotWsApi.newBuilder().build();
+JavaHttpSubscriptionAdapter wsAdapter = JavaHttpSubscriptionAdapter.newBuilder().build();
+PolkadotApi api = PolkadotApi.newBuilder()
+        .subscriptionAdapter(wsAdapter)
+        .build();
 
 // IMPORTANT! connect to the node as the first step before making calls or subscriptions.
-client.connect().get(5, TimeUnit.SECONDS);
+wsAdapter.connect().get(5, TimeUnit.SECONDS);
 ----
 
-Class `PolkadotWsApi` implements `PolkadotSubscriptionApi` (as well as standard `PolkadotApi`)
+Class `JavaHttpSubscriptionAdapter` implements `SubscriptionAdapter`
+When setting a `SubscriptionAdapter` via the Builder, it will also be used as the `RpcAdapter`
 
 [source, java]
 ----
-interface PolkadotSubscriptionApi {
+interface PolkadotApi {
+    //...
+
     <T> CompletableFuture<Subscription<T>> subscribe(SubscribeCall<T> call);
 }
 ----
@@ -308,7 +321,7 @@ Note, it's the time we wait for the response from the server that provide use wi
 
 [source, java]
 ----
-Future<Subscription<BlockJson.Header>> hashFuture = client.subscribe(
+Future<Subscription<BlockJson.Header>> hashFuture = api.subscribe(
         PolkadotSubscriptionApi.subscriptions().newHeads()
 );
 Subscription<BlockJson.Header> subscription = hashFuture.get(5, TimeUnit.SECONDS);
@@ -329,11 +342,11 @@ subscription.handler((Subscription.Event<BlockJson.Header> event) -> {
 });
 ----
 
-Since the `PolkadotWsApi` implements standard `PolkadotApi` you can make all other calls through the same WebSocket connection:
+Since the `SubscriptionAdapter` extends standard `RpcAdapter` you can make all other calls through the same WebSocket connection:
 
 [source, java]
 ----
-Future<BlockResponseJson> previousBlock = client.execute(
+Future<BlockResponseJson> previousBlock = api.execute(
     PolkadotApi.commands().getBlock(header.getParentHash())
 );
 ----

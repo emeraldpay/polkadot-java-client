@@ -3,9 +3,7 @@ package io.emeraldpay.polkaj.apihttp;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.emeraldpay.polkaj.api.AbstractPolkadotApi;
-import io.emeraldpay.polkaj.api.RpcCall;
-import io.emeraldpay.polkaj.api.RpcException;
+import io.emeraldpay.polkaj.api.*;
 import io.emeraldpay.polkaj.json.jackson.PolkadotModule;
 
 import java.net.URI;
@@ -23,9 +21,9 @@ import java.util.concurrent.Executors;
 /**
  * Default JSON RPC HTTP client for Polkadot API. It uses Java 11 HttpClient implementation for requests.
  * Each request made from that client has a uniq id, from a monotone sequence starting on 0. A new instance is
- * supposed to be create through {@link PolkadotHttpApi#newBuilder()}:
+ * supposed to be create through {@link JavaHttpAdapter#newBuilder()}:
  * <br>
- * The class is AutoCloseable, with {@link PolkadotHttpApi#close()} methods, which shutdown a thread (or threads) used for http requests.
+ * The class is AutoCloseable, with {@link JavaHttpAdapter#close()} methods, which shutdown a thread (or threads) used for http requests.
  *
  * <br>
  * Example:
@@ -35,19 +33,19 @@ import java.util.concurrent.Executors;
  * System.out.println("Current head: " + hash.get());
  * </code></pre>
  */
-public class PolkadotHttpApi extends AbstractPolkadotApi implements AutoCloseable {
+public class JavaHttpAdapter implements RpcCallAdapter {
 
     private static final String APPLICATION_JSON = "application/json";
 
     private final HttpClient httpClient;
-    private final Runnable onClose;
     private final HttpRequest.Builder request;
+    private final Runnable onClose;
+    private final RpcCoder rpcCoder;
+
     private boolean closed = false;
 
-    private PolkadotHttpApi(URI target, HttpClient httpClient, String basicAuth, Runnable onClose, ObjectMapper objectMapper, Duration timeout) {
-        super(objectMapper);
+    private JavaHttpAdapter(URI target, HttpClient httpClient, String basicAuth, Duration timeout, Runnable onClose, RpcCoder rpcCoder) {
         this.httpClient = httpClient;
-        this.onClose = onClose;
 
         HttpRequest.Builder request = HttpRequest.newBuilder()
                 .uri(target)
@@ -60,6 +58,8 @@ public class PolkadotHttpApi extends AbstractPolkadotApi implements AutoCloseabl
         }
 
         this.request = request;
+        this.onClose = onClose;
+        this.rpcCoder = rpcCoder;
     }
 
     /**
@@ -71,25 +71,28 @@ public class PolkadotHttpApi extends AbstractPolkadotApi implements AutoCloseabl
      * @see RpcException
      */
     @Override
-    public <T> CompletableFuture<T> execute(RpcCall<T> call) {
+    public <T> CompletableFuture<T> produceRpcFuture(RpcCall<T> call) {
         if (closed) {
             return CompletableFuture.failedFuture(
                     new IllegalStateException("Client is already closed")
             );
         }
-        int id = nextId();
+        final ObjectMapper objectMapper = rpcCoder.getObjectMapper();
+        int id = rpcCoder.nextId();
         JavaType type = call.getResultType(objectMapper.getTypeFactory());
         try {
             HttpRequest.Builder request = this.request.copy()
-                    .POST(HttpRequest.BodyPublishers.ofByteArray(encode(id, call.getMethod(), call.getParams())));
+                    .POST(HttpRequest.BodyPublishers.ofByteArray(rpcCoder.encode(id, call)));
             return httpClient.sendAsync(request.build(), HttpResponse.BodyHandlers.ofString())
                     .thenApply(this::verify)
                     .thenApply(HttpResponse::body)
-                    .thenApply(content -> decode(id, content, type));
+                    .thenApply(content -> rpcCoder.decode(id, content, type));
         } catch (JsonProcessingException e) {
             return CompletableFuture.failedFuture(
                     new RpcException(-32600, "Unable to encode request as JSON: " + e.getMessage(), e)
             );
+        } catch (CompletionException e){
+            return CompletableFuture.failedFuture(e);
         }
     }
 
@@ -122,14 +125,18 @@ public class PolkadotHttpApi extends AbstractPolkadotApi implements AutoCloseabl
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         if (closed) {
             return;
         }
-        if (onClose != null) {
-            onClose.run();
-        }
         closed = true;
+        if (onClose != null) {
+            try {
+                onClose.run();
+            } catch (Throwable t) {
+                System.err.println("Error during onClose call: " + t.getMessage());
+            }
+        }
     }
 
     /**
@@ -137,7 +144,7 @@ public class PolkadotHttpApi extends AbstractPolkadotApi implements AutoCloseabl
      * a standard Java HttpClient without any authorization connecting to localhost:9933 and using
      * a new instance of a Jackson ObjectMapper with PolkadotModule enabled.
      *
-     * @see PolkadotHttpApi
+     * @see JavaHttpAdapter
      * @see HttpClient
      * @see PolkadotModule
      */
@@ -146,10 +153,9 @@ public class PolkadotHttpApi extends AbstractPolkadotApi implements AutoCloseabl
         private ExecutorService executorService;
         private String basicAuth;
         private HttpClient httpClient;
+        private RpcCoder rpcCoder;
         private Runnable onClose;
-        private ObjectMapper objectMapper;
         private Duration timeout;
-
 
         /**
          * Setup Basic Auth for RPC calls
@@ -211,21 +217,17 @@ public class PolkadotHttpApi extends AbstractPolkadotApi implements AutoCloseabl
                 throw new IllegalStateException("Custom HttpClient cannot be used with separate Executor");
             }
             this.executorService = executorService;
-            if (this.onClose != null) {
-                this.onClose.run();
-            }
-            this.onClose = null;
             return this;
         }
 
         /**
-         * Provide a custom ObjectMapper that will be used to encode/decode request and responses.
+         * Provide custom cleanup method.
          *
-         * @param objectMapper ObjectMapper
+         * @param onClose to be called on close.
          * @return builder
          */
-        public Builder objectMapper(ObjectMapper objectMapper) {
-            this.objectMapper = objectMapper;
+        public Builder onClose(Runnable onClose){
+            this.onClose = onClose;
             return this;
         }
 
@@ -240,33 +242,39 @@ public class PolkadotHttpApi extends AbstractPolkadotApi implements AutoCloseabl
             return this;
         }
 
-        protected void initDefaults() {
+        /**
+         * Provide a custom RpcCoder for rpc serialization.
+         *
+         * @param rpcCoder rpcCoder
+         * @return builder
+         */
+        public JavaHttpAdapter.Builder rpcCoder(RpcCoder rpcCoder){
+            this.rpcCoder = rpcCoder;
+            return this;
+        }
+
+        private void initDefaults() {
+            if (rpcCoder == null) {
+                final ObjectMapper objectMapper = new ObjectMapper();
+                objectMapper.registerModule(new PolkadotModule());
+                rpcCoder = new RpcCoder(objectMapper);
+            }
+
             if (httpClient == null && target == null) {
                 try {
                     connectTo("http://127.0.0.1:9933");
                 } catch (URISyntaxException e) { }
             }
+
             if (executorService == null) {
                 ExecutorService executorService = Executors.newCachedThreadPool();
                 this.executorService = executorService;
                 onClose = executorService::shutdown;
             }
-            if (objectMapper == null) {
-                objectMapper = new ObjectMapper();
-                objectMapper.registerModule(new PolkadotModule());
-            }
+
             if (timeout == null) {
                 timeout = Duration.ofMinutes(1);
             }
-        }
-
-        /**
-         * Apply configuration and build client
-         *
-         * @return new instance of PolkadotRpcClient
-         */
-        public PolkadotHttpApi build() {
-            initDefaults();
 
             if (this.httpClient == null) {
                 httpClient = HttpClient.newBuilder()
@@ -275,8 +283,16 @@ public class PolkadotHttpApi extends AbstractPolkadotApi implements AutoCloseabl
                         .followRedirects(HttpClient.Redirect.NEVER)
                         .build();
             }
+        }
 
-            return new PolkadotHttpApi(target, httpClient, basicAuth, onClose, objectMapper, timeout);
+        /**
+         * Apply configuration and build client
+         *
+         * @return new instance of PolkadotRpcClient
+         */
+        public JavaHttpAdapter build() {
+            initDefaults();
+            return new JavaHttpAdapter(target, httpClient, basicAuth, timeout, onClose, rpcCoder);
         }
 
     }
