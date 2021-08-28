@@ -711,4 +711,11 @@ public class Metadata {
         }
     }
 
+    @Override
+    public String toString() {
+        return "Metadata{" +
+                "magic=" + magic +
+                ", version=" + version +
+                '}';
+    }
 }

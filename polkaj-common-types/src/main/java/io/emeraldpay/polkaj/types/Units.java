@@ -10,6 +10,7 @@ import java.util.Objects;
  * @see DotAmount
  * @see DotAmount#Polkadots
  * @see DotAmount#Kusamas
+ * @see DotAmount#Westies
  * @see Units.Unit
  */
 public class Units {
@@ -18,6 +19,11 @@ public class Units {
     public static final Unit Microdot = new Unit("Microdot", "uDOT", 4);
     public static final Unit Millidot = new Unit("Millidot", "mDOT", 7);
     public static final Unit Dot = new Unit("Dot", "DOT", 10);
+
+    public static final Unit Point = new Unit("Point", 3);
+    public static final Unit Micrownd = new Unit("Micrownd", "uWND", 6);
+    public static final Unit Milliwnd = new Unit("Milliwnd", "mWND", 9);
+    public static final Unit Wnd = new Unit("Wnd", "WND", 12);
 
     private final Unit[] units;
 

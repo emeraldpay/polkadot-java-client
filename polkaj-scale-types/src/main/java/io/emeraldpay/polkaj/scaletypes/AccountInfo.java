@@ -66,4 +66,15 @@ public class AccountInfo {
     public int hashCode() {
         return Objects.hash(nonce, consumers, providers, sufficients, data);
     }
+
+    @Override
+    public String toString() {
+        return "AccountInfo{" +
+                "nonce=" + nonce +
+                ", consumers=" + consumers +
+                ", providers=" + providers +
+                ", sufficients=" + sufficients +
+                ", data=" + data +
+                '}';
+    }
 }

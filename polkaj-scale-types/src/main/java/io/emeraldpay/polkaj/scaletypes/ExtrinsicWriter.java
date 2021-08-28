@@ -1,11 +1,11 @@
 package io.emeraldpay.polkaj.scaletypes;
 
-import io.emeraldpay.polkaj.scale.ScaleCodecWriter;
-import io.emeraldpay.polkaj.scale.ScaleWriter;
-
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigInteger;
+
+import io.emeraldpay.polkaj.scale.ScaleCodecWriter;
+import io.emeraldpay.polkaj.scale.ScaleWriter;
 
 public class ExtrinsicWriter<CALL extends ExtrinsicCall> implements ScaleWriter<Extrinsic<CALL>> {
 
@@ -37,11 +37,16 @@ public class ExtrinsicWriter<CALL extends ExtrinsicCall> implements ScaleWriter<
         @Override
         public void write(ScaleCodecWriter wrt, Extrinsic.TransactionInfo value) throws IOException {
             wrt.write(SENDER_WRITER, value.getSender());
-            wrt.writeByte(Extrinsic.SignatureType.SR25519.getCode());
-            wrt.writeByteArray(value.getSignature().getValue().getBytes());
+            writeSignature(wrt, value);
             wrt.write(ERA_WRITER, value.getEra());
             wrt.write(ScaleCodecWriter.COMPACT_BIGINT, BigInteger.valueOf(value.getNonce()));
             wrt.write(ScaleCodecWriter.COMPACT_BIGINT, value.getTip().getValue());
+        }
+
+        private void writeSignature(ScaleCodecWriter wrt, Extrinsic.TransactionInfo value) throws IOException {
+            Extrinsic.Signature signature = value.getSignature();
+            wrt.writeByte(signature.getType().getCode());
+            wrt.writeByteArray(signature.getValue().getBytes());
         }
     }
 }

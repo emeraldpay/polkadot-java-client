@@ -1,19 +1,31 @@
 package io.emeraldpay.polkaj.tx;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.math.BigInteger;
+import java.security.InvalidKeyException;
+import java.security.KeyFactory;
+import java.security.NoSuchAlgorithmException;
+import java.security.PublicKey;
+import java.security.Security;
+import java.security.Signature;
+import java.security.SignatureException;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.X509EncodedKeySpec;
+
 import io.emeraldpay.polkaj.scale.ScaleCodecWriter;
 import io.emeraldpay.polkaj.scale.ScaleWriter;
-import io.emeraldpay.polkaj.scaletypes.BalanceTransfer;
-import io.emeraldpay.polkaj.scaletypes.BalanceTransferWriter;
-import io.emeraldpay.polkaj.scaletypes.ExtrinsicCall;
 import io.emeraldpay.polkaj.scaletypes.EraWriter;
+import io.emeraldpay.polkaj.scaletypes.Extrinsic;
+import io.emeraldpay.polkaj.scaletypes.ExtrinsicCall;
 import io.emeraldpay.polkaj.schnorrkel.Schnorrkel;
 import io.emeraldpay.polkaj.schnorrkel.SchnorrkelException;
 import io.emeraldpay.polkaj.types.Address;
 import io.emeraldpay.polkaj.types.Hash512;
-
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.math.BigInteger;
+import org.bouncycastle.asn1.edec.EdECObjectIdentifiers;
+import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
+import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 /**
  * Extrinsic signer and signature verifier. Created with provided SCALE writer for the call type it support, which is
@@ -90,13 +102,44 @@ public class ExtrinsicSigner<CALL extends ExtrinsicCall> {
      * @return true if signature is valid under specified context for specified address
      * @throws SignException if invalid key or failed to encode
      */
-    public boolean isValid(ExtrinsicContext ctx, CALL call, Hash512 signature, Address address) throws SignException {
+    public boolean isValid(ExtrinsicContext ctx, CALL call, Extrinsic.Signature signature, Address address)
+            throws SignException {
         byte[] payload = getPayload(ctx, call, false);
+
+        Extrinsic.SignatureType signatureType = signature.getType();
         try {
-            return Schnorrkel.getInstance().verify(signature.getBytes(), payload, new Schnorrkel.PublicKey(address.getPubkey()));
-        } catch (SchnorrkelException e) {
+            if (Extrinsic.SignatureType.ED25519 == signatureType) {
+                return isValidEd25519Signature(payload, signature, address);
+            }
+            else {
+                return Schnorrkel.getInstance()
+                        .verify(signature.getValue().getBytes(), payload, new Schnorrkel.PublicKey(address.getPubkey()));
+            }
+        }
+        catch (SchnorrkelException | SignatureException | NoSuchAlgorithmException | InvalidKeySpecException | IOException | InvalidKeyException e) {
             throw new SignException("Failed to verify", e);
         }
+    }
+
+    private boolean isValidEd25519Signature(byte[] payload, Extrinsic.Signature signature, Address address)
+            throws SignatureException, NoSuchAlgorithmException, InvalidKeySpecException, IOException, InvalidKeyException {
+
+    	// register security provider for verification
+        final BouncyCastleProvider bouncyCastleProvider = new BouncyCastleProvider();
+        Security.addProvider(bouncyCastleProvider);
+
+        // create public key object from address
+        SubjectPublicKeyInfo pubKeyInfo = new SubjectPublicKeyInfo(
+                new AlgorithmIdentifier(EdECObjectIdentifiers.id_Ed25519), address.getPubkey());
+        X509EncodedKeySpec keySpec = new X509EncodedKeySpec(pubKeyInfo.getEncoded());
+        KeyFactory keyFactory = KeyFactory.getInstance("Ed25519", bouncyCastleProvider);
+        PublicKey publicKey = keyFactory.generatePublic(keySpec);
+
+        // verify signature
+        final var signedData = Signature.getInstance("ed25519", bouncyCastleProvider);
+        signedData.initVerify(publicKey);
+        signedData.update(payload);
+        return signedData.verify(signature.getValue().getBytes());
     }
 
     public static class SignaturePayload<CALL extends ExtrinsicCall> {

@@ -1,5 +1,8 @@
 package io.emeraldpay.polkaj.tx;
 
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+
 import io.emeraldpay.polkaj.api.PolkadotApi;
 import io.emeraldpay.polkaj.api.StandardCommands;
 import io.emeraldpay.polkaj.json.RuntimeVersionJson;
@@ -7,9 +10,6 @@ import io.emeraldpay.polkaj.scaletypes.AccountInfo;
 import io.emeraldpay.polkaj.types.Address;
 import io.emeraldpay.polkaj.types.DotAmount;
 import io.emeraldpay.polkaj.types.Hash256;
-
-import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Context to execute an Extrinsic
@@ -249,5 +249,19 @@ public class ExtrinsicContext {
                             .genesis(genesis.join())
                     );
         }
+    }
+
+    @Override
+    public String toString() {
+        return "ExtrinsicContext{" +
+                "txVersion=" + txVersion +
+                ", runtimeVersion=" + runtimeVersion +
+                ", genesis=" + genesis +
+                ", eraBlockHash=" + eraBlockHash +
+                ", nonce=" + nonce +
+                ", era=" + era +
+                ", tip=" + tip +
+                ", eraHeight=" + eraHeight +
+                '}';
     }
 }

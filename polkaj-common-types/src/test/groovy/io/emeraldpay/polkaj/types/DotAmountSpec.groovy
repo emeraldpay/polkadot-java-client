@@ -43,6 +43,20 @@ class DotAmountSpec extends Specification {
         act.units.main.name == "Dot"
     }
 
+    def "Create from westies"() {
+        when:
+        def act = DotAmount.from(123.456789, DotAmount.Westies)
+        then:
+        act.value.toString() == "123456789000000"
+        act.units.main.name == "Wnd"
+
+        when:
+        act = DotAmount.from(123L, DotAmount.Westies)
+        then:
+        act.value.toString() == "123000000000000"
+        act.units.main.name == "Wnd"
+    }
+
     def "Addition works"() {
         when:
         def act = DotAmount.fromDots(10)
@@ -62,19 +76,19 @@ class DotAmountSpec extends Specification {
         thrown(IllegalStateException)
     }
 
-    def "Substraction works"() {
+    def "Subtraction works"() {
         when:
         def act = DotAmount.fromDots(10)
-                .substract(DotAmount.fromDots(5.123))
+                .subtract(DotAmount.fromDots(5.123))
 
         then:
         act.value.toString() == "48770000000"
     }
 
-    def "Cannot substract different units"() {
+    def "Cannot subtract different units"() {
         when:
         new DotAmount(BigInteger.valueOf(1), DotAmount.Polkadots)
-                .substract(new DotAmount(BigInteger.valueOf(1), DotAmount.Kusamas))
+                .subtract(new DotAmount(BigInteger.valueOf(1), DotAmount.Kusamas))
 
         then:
         thrown(IllegalStateException)
@@ -115,6 +129,17 @@ class DotAmountSpec extends Specification {
         0.1234567891    |    "1234567891 DOT"
     }
 
+    @Unroll
+    def "toString works for #westies"() {
+        expect:
+        DotAmount.from(westies, DotAmount.Westies).toString() == str
+        where:
+        westies         | str
+        0.1             |    "100000000000 WND"
+        100.0           | "100000000000000 WND"
+        0.123456789123  |    "123456789123 WND"
+    }
+
     def "Same amounts are equal"() {
         when:
         def amount1 = DotAmount.fromDots(10)
@@ -133,7 +158,7 @@ class DotAmountSpec extends Specification {
         !amount1.equals(amount2)
     }
 
-    def "Same amounts but different units are not equal"() {
+    def "Same amounts but different units are not equal (DOT/KSM)"() {
         when:
         def amount1 = DotAmount.fromDots(10)
         def amount2 = new DotAmount(BigInteger.valueOf(100000000000), DotAmount.Kusamas)
@@ -142,10 +167,28 @@ class DotAmountSpec extends Specification {
         !amount1.equals(amount2)
     }
 
-    def "Same units gives same amounts"() {
+    def "Same amounts but different units are not equal (DOT/WND)"() {
+        when:
+        def amount1 = DotAmount.fromDots(10)
+        def amount2 = new DotAmount(BigInteger.valueOf(100000000000), DotAmount.Westies)
+
+        then:
+        !amount1.equals(amount2)
+    }
+
+    def "Same units gives same amounts (KSM)"() {
         when:
         def amount1 = new DotAmount(BigInteger.valueOf(5), DotAmount.Kusamas)
         def amount2 = new DotAmount(BigInteger.valueOf(3), DotAmount.Kusamas)
+
+        then:
+        amount1.isSame(amount2)
+    }
+
+    def "Same units gives same amounts (WND)"() {
+        when:
+        def amount1 = new DotAmount(BigInteger.valueOf(5), DotAmount.Westies)
+        def amount2 = new DotAmount(BigInteger.valueOf(3), DotAmount.Westies)
 
         then:
         amount1.isSame(amount2)
@@ -164,6 +207,15 @@ class DotAmountSpec extends Specification {
         when:
         def amount1 = DotAmount.fromDots(10)
         def amount2 = new DotAmount(BigInteger.valueOf(100000000000))
+
+        then:
+        amount1.hashCode() == amount2.hashCode()
+    }
+
+    def "Same hashcodes for same values (WND)"() {
+        when:
+        def amount1 = DotAmount.from(10, DotAmount.Westies)
+        def amount2 = new DotAmount(BigInteger.valueOf(10000000000000), DotAmount.Westies)
 
         then:
         amount1.hashCode() == amount2.hashCode()
@@ -208,20 +260,24 @@ class DotAmountSpec extends Specification {
 
     def "For different units sort by unit name, then amount"() {
         when:
-        //DOT comes before KSM
+        //DOT comes before KSM comes before WND
         def act = [
                 new DotAmount(BigInteger.valueOf(1), DotAmount.Polkadots),
                 new DotAmount(BigInteger.valueOf(2), DotAmount.Kusamas),
-                new DotAmount(BigInteger.valueOf(3), DotAmount.Polkadots),
-                new DotAmount(BigInteger.valueOf(4), DotAmount.Kusamas),
+                new DotAmount(BigInteger.valueOf(3), DotAmount.Westies),
+                new DotAmount(BigInteger.valueOf(4), DotAmount.Polkadots),
+                new DotAmount(BigInteger.valueOf(5), DotAmount.Kusamas),
+                new DotAmount(BigInteger.valueOf(6), DotAmount.Westies),
         ]
         Collections.sort(act)
 
         then:
         act[0].value == 1
-        act[1].value == 3
+        act[1].value == 4
         act[2].value == 2
-        act[3].value == 4
+        act[3].value == 5
+        act[4].value == 3
+        act[5].value == 6
     }
 
     def "Get minimal"() {
@@ -253,6 +309,44 @@ class DotAmountSpec extends Specification {
         100_000_000_000  | "Dot"
     }
 
+    def "Get minimal (WND)"() {
+        expect:
+        DotAmount.fromPlancks(amount, DotAmount.Westies).minimalUnit.name == unit
+        where:
+        amount      | unit
+        1           | "Planck"
+        5           | "Planck"
+        50          | "Planck"
+        100         | "Planck"
+        500         | "Planck"
+        999         | "Planck"
+
+        1000          | "Point"
+        5000          | "Point"
+        9999          | "Point"
+        10_000        | "Point"
+        100_000       | "Point"
+        999_999       | "Point"
+
+        1_000_000       | "Micrownd"
+        50_000_000      | "Micrownd"
+        100_000_000     | "Micrownd"
+        500_000_000     | "Micrownd"
+        999_999_999     | "Micrownd"
+
+        1_000_000_000      | "Milliwnd"
+        50_000_000_000     | "Milliwnd"
+        100_000_000_000    | "Milliwnd"
+        500_000_000_000    | "Milliwnd"
+        999_999_999_999    | "Milliwnd"
+
+        1_000_000_000_000     | "Wnd"
+        50_000_000_000_000    | "Wnd"
+        100_000_000_000_000   | "Wnd"
+        500_000_000_000_000   | "Wnd"
+        999_999_999_999_999   | "Wnd"
+    }
+
     def "Get minimal with limit"() {
         when:
         def act = DotAmount
@@ -262,7 +356,7 @@ class DotAmountSpec extends Specification {
         act == Units.Millidot
     }
 
-    def "Get value in planks"() {
+    def "Get value in plancks"() {
         expect:
         DotAmount.fromPlancks(amount)
                 .getValue(Units.Planck)
@@ -332,5 +426,13 @@ class DotAmountSpec extends Specification {
                 .getValue(Units.Dot)
         then:
         act == BigDecimal.valueOf(100)
+    }
+
+    def "Uses denomination examples (WND)"() {
+        when:
+        def act = DotAmount.fromPlancks(1_000_000_000_000_000, DotAmount.Westies)
+                .getValue(DotAmount.Westies.main)
+        then:
+        act == BigDecimal.valueOf(1000)
     }
 }

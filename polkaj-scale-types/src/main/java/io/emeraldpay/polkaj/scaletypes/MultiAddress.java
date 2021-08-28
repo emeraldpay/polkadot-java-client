@@ -1,9 +1,9 @@
 package io.emeraldpay.polkaj.scaletypes;
 
+import java.util.Objects;
+
 import io.emeraldpay.polkaj.scale.UnionValue;
 import io.emeraldpay.polkaj.types.Address;
-
-import java.util.Objects;
 
 /**
  * Represents the MultiAddress enum defined in Substrate
@@ -79,6 +79,13 @@ public abstract class MultiAddress {
 
         public boolean canEquals(Object o) {
             return (o instanceof AccountID);
+        }
+
+        @Override
+        public String toString() {
+            return "AccountID{" +
+                    "address=" + address +
+                    '}';
         }
     }
 }

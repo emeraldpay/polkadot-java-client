@@ -44,4 +44,12 @@ public class UnionValue<T> {
     public int hashCode() {
         return Objects.hash(index, value);
     }
+
+    @Override
+    public String toString() {
+        return "UnionValue{" +
+                "index=" + index +
+                ", value=" + value +
+                '}';
+    }
 }

@@ -50,8 +50,15 @@ class ExtrinsicSpec extends Specification {
     def "SR25519 Signature Equals"() {
         when:
         def v = EqualsVerifier.forClass(Extrinsic.SR25519Signature)
-                .suppress(Warning.STRICT_INHERITANCE)
-                .suppress(Warning.NONFINAL_FIELDS)
+                .usingGetClass()
+        then:
+        v.verify()
+    }
+
+    def "ED25519 Signature Equals"() {
+        when:
+        def v = EqualsVerifier.forClass(Extrinsic.ED25519Signature)
+                .usingGetClass()
         then:
         v.verify()
     }

@@ -1,6 +1,6 @@
 package io.emeraldpay.polkaj.tx
 
-
+import io.emeraldpay.polkaj.scaletypes.Extrinsic
 import io.emeraldpay.polkaj.types.Address
 import io.emeraldpay.polkaj.types.ByteData
 import io.emeraldpay.polkaj.types.DotAmount
@@ -62,11 +62,28 @@ class AccountRequestsSpec extends Specification {
             .to(Address.from("5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"))
             .nonce(1234567890)
             .amount(DotAmount.fromDots(123))
-            .signed(Hash512.from("0x6a141ade40871c076f3eb32362f0204db49e4ae37e5dc7a68329f1a6768034556201432b1635637fc1d42ae6fce996fb25ef175ee1ae4015d2b8769436d89987"))
+            .signed(new Extrinsic.SR25519Signature(Hash512.from("0x6a141ade40871c076f3eb32362f0204db49e4ae37e5dc7a68329f1a6768034556201432b1635637fc1d42ae6fce996fb25ef175ee1ae4015d2b8769436d89987")))
             .build()
         def act = transfer.encodeRequest()
         then:
         act.toString() == "0x51028400d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d016a141ade40871c076f3eb32362f0204db49e4ae37e5dc7a68329f1a6768034556201432b1635637fc1d42ae6fce996fb25ef175ee1ae4015d2b8769436d899870003d2029649000500008eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a480b008cb6611e01"
+    }
+
+     def "Encode transfer_keep_alive"() {
+        when:
+        def transfer = AccountRequests.transferKeepAlive()
+            .module(4, 3)
+            .from(Address.from("5FqBfbPzAD8v8M3XQQEixXJW7HmXZ8JLqLfibxj8zjuPkipz"))
+            .to(Address.from("5GAiqfv7kwGxnLpCue9pFt7zwt4u1aoYM7p9tHJPGMjNHpEz"))
+            .nonce(1)
+            .amount(DotAmount.from(0.5, DotAmount.Westies))
+            .tip(DotAmount.fromPlancks(7750000718L, DotAmount.Westies))
+            .signed(new Extrinsic.ED25519Signature(
+                    Hash512.from("0x634c879c40daf331254bafdbfb24ac3f5286f60d38ed4d056caffd6c5efbd8451fbb0e277f2be832e8e8aad428492c25e8f354f9976500a41e8943284a4e540b")))
+            .build()
+        def act = transfer.encodeRequest()
+        then:
+        act.toString() == "0x51028400a6a11c9cf2b58fd914ffc8f667e31e8e6175514833a2892100c8c3bcc904906100634c879c40daf331254bafdbfb24ac3f5286f60d38ed4d056caffd6c5efbd8451fbb0e277f2be832e8e8aad428492c25e8f354f9976500a41e8943284a4e540b0004074ea0efcd01040300b587b6f4e35da071696161b345b378eb282c884a03d23cf7e44ba27cf3f63d4c070088526a74"
     }
 
     def "Sign and encode transfer"() {

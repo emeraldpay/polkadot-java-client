@@ -82,4 +82,12 @@ public abstract class ExtrinsicCall {
     public boolean canEquals(Object o) {
         return (o instanceof ExtrinsicCall);
     }
+
+    @Override
+    public String toString() {
+        return "ExtrinsicCall{" +
+                "moduleIndex=" + moduleIndex +
+                ", callIndex=" + callIndex +
+                '}';
+    }
 }

@@ -1,11 +1,12 @@
 package io.emeraldpay.polkaj.types;
 
-import io.emeraldpay.polkaj.types.Units.Unit;
-
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
 import java.util.Objects;
+
+import io.emeraldpay.polkaj.ss58.SS58Type;
+import io.emeraldpay.polkaj.types.Units.Unit;
 
 /**
  * Amount value, in DOTs
@@ -27,7 +28,7 @@ public class DotAmount implements Comparable<DotAmount>{
     );
 
     /**
-     * Kusama testnet units
+     * Kusama units
      *
      * Planck -&gt;  Point -&gt; MicroKSM -&gt; MilliKSM -&gt; KSM
      */
@@ -37,6 +38,19 @@ public class DotAmount implements Comparable<DotAmount>{
             new Unit("MicroKSM", "uKSM", 6),
             new Unit("MilliKSM", "mKSM", 9),
             new Unit("KSM", 12)
+    );
+    
+    /**
+     * Westend testnet units
+     *
+     * Planck -&gt;  Point -&gt; MicroWND -&gt; MilliWND -&gt; WND
+     */
+    public static final Units Westies = new Units(
+            Units.Planck,
+            Units.Point,
+            Units.Micrownd,
+            Units.Milliwnd,
+            Units.Wnd
     );
 
     /**
@@ -65,6 +79,7 @@ public class DotAmount implements Comparable<DotAmount>{
      *
      * @see DotAmount#Polkadots
      * @see DotAmount#Kusamas
+     * @see DotAmount#Westies
      *
      * @param value amount
      * @param units custom units
@@ -74,8 +89,26 @@ public class DotAmount implements Comparable<DotAmount>{
         this.units = units;
     }
 
+    /**
+     * Create a DOT amount for a specific network
+     *
+     * @see DotAmount#Polkadots
+     * @see DotAmount#Kusamas
+     * @see DotAmount#Westies
+     *
+     * @param value amount
+     * @param network the network to determine the custom units for
+     */
+    public DotAmount(BigInteger value, SS58Type.Network network) {
+        this(value, getUnitsForNetwork(network));
+    }
+
     public static DotAmount fromPlancks(long amount) {
         return new DotAmount(BigInteger.valueOf(amount), Polkadots);
+    }
+
+    public static DotAmount fromPlancks(long amount, Units units) {
+        return new DotAmount(BigInteger.valueOf(amount), units);
     }
 
     public static DotAmount fromPlancks(String amount) {
@@ -84,17 +117,28 @@ public class DotAmount implements Comparable<DotAmount>{
 
     public static DotAmount fromDots(long amount) {
         return new DotAmount(
-                BigInteger.valueOf(amount)
-                        .multiply(DOT_MULTIPLIER)
-                , Polkadots);
+                BigInteger.valueOf(amount).multiply(DOT_MULTIPLIER),
+                Polkadots);
     }
 
     public static DotAmount fromDots(double amount) {
         return new DotAmount(
-                BigDecimal.valueOf(amount)
-                        .multiply(DOT_MULTIPLIER_DECIMAL)
-                        .toBigInteger()
-                , Polkadots);
+                BigDecimal.valueOf(amount).multiply(DOT_MULTIPLIER_DECIMAL).toBigInteger(),
+                Polkadots);
+    }
+
+    public static DotAmount from(long amount, Units units) {
+        BigInteger unitMultiplier = units.getMain().getMultiplier();
+        return new DotAmount(
+                BigInteger.valueOf(amount).multiply(unitMultiplier),
+                units);
+    }
+
+    public static DotAmount from(double amount, Units units) {
+        BigDecimal unitMultiplierDecimal = new BigDecimal(units.getMain().getMultiplier());
+        return new DotAmount(
+                BigDecimal.valueOf(amount).multiply(unitMultiplierDecimal).toBigInteger(),
+                units);
     }
 
     public boolean isSame(DotAmount another) {
@@ -112,7 +156,7 @@ public class DotAmount implements Comparable<DotAmount>{
         return new DotAmount(this.value.add(amount.value), this.units);
     }
 
-    public DotAmount substract(DotAmount amount) {
+    public DotAmount subtract(DotAmount amount) {
         requireSame(amount);
         return new DotAmount(this.value.subtract(amount.value), this.units);
     }
@@ -170,6 +214,23 @@ public class DotAmount implements Comparable<DotAmount>{
             }
         }
         return units[0];
+    }
+
+    /**
+     * <p>Retrieve the {@link Units} matching the given network.</p>
+     * <p>{@link #Polkadots} is used as default if the no units have been defined for the network.</p>
+     *
+     * @param network the SS58 network type for which to get the units
+     * @return units for the given network
+     */
+    public static Units getUnitsForNetwork(SS58Type.Network network) {
+        if (SS58Type.Network.CANARY.equals(network)) {
+            return Kusamas;
+        }
+        if (SS58Type.Network.SUBSTRATE.equals(network)) {
+            return Westies;
+        }
+        return Polkadots;
     }
 
     @Override

@@ -1,8 +1,8 @@
 package io.emeraldpay.polkaj.scaletypes;
 
-import io.emeraldpay.polkaj.types.DotAmount;
-
 import java.util.Objects;
+
+import io.emeraldpay.polkaj.types.DotAmount;
 
 public class AccountData {
 
@@ -57,5 +57,15 @@ public class AccountData {
     @Override
     public int hashCode() {
         return Objects.hash(free, reserved, miscFrozen, feeFrozen);
+    }
+
+    @Override
+    public String toString() {
+        return "AccountData{" +
+                "free=" + free +
+                ", reserved=" + reserved +
+                ", miscFrozen=" + miscFrozen +
+                ", feeFrozen=" + feeFrozen +
+                '}';
     }
 }

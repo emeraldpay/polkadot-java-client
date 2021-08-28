@@ -1,14 +1,15 @@
 package io.emeraldpay.polkaj.scaletypes;
 
+import java.util.Arrays;
+
 import io.emeraldpay.polkaj.scale.ScaleCodecReader;
 import io.emeraldpay.polkaj.scale.ScaleReader;
+import io.emeraldpay.polkaj.scale.UnionValue;
 import io.emeraldpay.polkaj.scale.reader.UnionReader;
 import io.emeraldpay.polkaj.scale.reader.UnsupportedReader;
 import io.emeraldpay.polkaj.ss58.SS58Type;
 import io.emeraldpay.polkaj.types.DotAmount;
 import io.emeraldpay.polkaj.types.Hash512;
-
-import java.util.Arrays;
 
 public class ExtrinsicReader<CALL extends ExtrinsicCall> implements ScaleReader<Extrinsic<CALL>> {
 
@@ -42,9 +43,9 @@ public class ExtrinsicReader<CALL extends ExtrinsicCall> implements ScaleReader<
 
     static class TransactionInfoReader implements ScaleReader<Extrinsic.TransactionInfo> {
 
-        private static final UnionReader<Extrinsic.SR25519Signature> SIGNATURE_READER = new UnionReader<>(
+        private static final UnionReader<Extrinsic.Signature> SIGNATURE_READER = new UnionReader<>(
                 Arrays.asList(
-                    new UnsupportedReader<>("ED25519 signatures are not supported"),
+                    new ED25519SignatureReader(),
                     new SR25519SignatureReader(),
                     new UnsupportedReader<>("ECDSA signatures are not supported")
                 )
@@ -53,19 +54,29 @@ public class ExtrinsicReader<CALL extends ExtrinsicCall> implements ScaleReader<
 
         private final MultiAddressReader senderReader;
 
+        private final SS58Type.Network network;
+
         public TransactionInfoReader(SS58Type.Network network) {
             this.senderReader = new MultiAddressReader(network);
+            this.network = network;
         }
 
         @Override
         public Extrinsic.TransactionInfo read(ScaleCodecReader rdr) {
             Extrinsic.TransactionInfo result = new Extrinsic.TransactionInfo();
             result.setSender(rdr.read(senderReader));
-            result.setSignature(rdr.read(SIGNATURE_READER).getValue());
+            readSignature(result, rdr);
             result.setEra(rdr.read(ERA_READER));
             result.setNonce(rdr.read(ScaleCodecReader.COMPACT_BIGINT).longValueExact());
-            result.setTip(new DotAmount(rdr.read(ScaleCodecReader.COMPACT_BIGINT)));
+            result.setTip(new DotAmount(rdr.read(ScaleCodecReader.COMPACT_BIGINT), network));
             return result;
+        }
+
+        private void readSignature(Extrinsic.TransactionInfo result, ScaleCodecReader rdr) {
+            UnionValue<Extrinsic.Signature> signature = rdr.read(SIGNATURE_READER);
+            if (signature != null) {
+                result.setSignature(signature.getValue());
+            }
         }
     }
 
@@ -74,6 +85,14 @@ public class ExtrinsicReader<CALL extends ExtrinsicCall> implements ScaleReader<
         @Override
         public Extrinsic.SR25519Signature read(ScaleCodecReader rdr) {
             return new Extrinsic.SR25519Signature(new Hash512(rdr.readByteArray(64)));
+        }
+    }
+
+    static class ED25519SignatureReader implements ScaleReader<Extrinsic.ED25519Signature> {
+
+        @Override
+        public Extrinsic.ED25519Signature read(ScaleCodecReader rdr) {
+            return new Extrinsic.ED25519Signature(new Hash512(rdr.readByteArray(64)));
         }
     }
 }

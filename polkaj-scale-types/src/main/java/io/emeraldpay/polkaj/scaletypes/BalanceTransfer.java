@@ -1,10 +1,10 @@
 package io.emeraldpay.polkaj.scaletypes;
 
+import java.util.Objects;
+
 import io.emeraldpay.polkaj.scale.UnionValue;
 import io.emeraldpay.polkaj.types.Address;
 import io.emeraldpay.polkaj.types.DotAmount;
-
-import java.util.Objects;
 
 /**
  * Call to transfer [part of] balance to another address
@@ -39,8 +39,18 @@ public class BalanceTransfer extends ExtrinsicCall {
      * @param metadata current Runtime
      */
     public void init(Metadata metadata) {
-        Metadata.Call call = metadata.findCall("Balances", "transfer")
-                .orElseThrow(() -> new IllegalStateException("Call 'Balances.transfer' doesn't exist"));
+        init(metadata, "transfer");
+    }
+
+    /**
+     * Initialize call index for given call of the Balance module from Runtime Metadata
+     *
+     * @param metadata current Runtime
+     * @param callName name of the call to execute, e.g. transfer, transfer_keep_alive, or transfer_all
+     */
+    public void init(Metadata metadata, String callName) {
+        Metadata.Call call = metadata.findCall("Balances", callName)
+                .orElseThrow(() -> new IllegalStateException("Call 'Balances." + callName + "' doesn't exist"));
         init(call);
     }
 
@@ -84,4 +94,11 @@ public class BalanceTransfer extends ExtrinsicCall {
         return (o instanceof BalanceTransfer);
     }
 
+    @Override
+    public String toString() {
+        return "BalanceTransfer{" +
+                "destination=" + destination +
+                ", balance=" + balance +
+                '}';
+    }
 }

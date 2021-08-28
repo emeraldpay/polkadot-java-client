@@ -1,11 +1,11 @@
 package io.emeraldpay.polkaj.scaletypes;
 
+import java.util.Objects;
+
 import io.emeraldpay.polkaj.scale.UnionValue;
 import io.emeraldpay.polkaj.types.Address;
 import io.emeraldpay.polkaj.types.DotAmount;
 import io.emeraldpay.polkaj.types.Hash512;
-
-import java.util.Objects;
 
 /**
  * Extrinsic Data, contains main details {@link #tx} with signature and other initial definitions, and the actual
@@ -56,7 +56,7 @@ public class Extrinsic<CALL extends ExtrinsicCall> {
         return Objects.hash(tx, call);
     }
 
-    public static enum SignatureType {
+    public enum SignatureType {
         ED25519(0),
         SR25519(1),
         ECDSA(2);
@@ -93,7 +93,7 @@ public class Extrinsic<CALL extends ExtrinsicCall> {
         /**
          * Signature
          */
-        private SR25519Signature signature;
+        private Signature signature;
         /**
          * Era to execute extrinsic. Immortal by default (i.e. 0)
          */
@@ -119,11 +119,11 @@ public class Extrinsic<CALL extends ExtrinsicCall> {
             this.sender = MultiAddress.AccountID.from(value);
         }
 
-        public SR25519Signature getSignature() {
+        public Signature getSignature() {
             return signature;
         }
 
-        public void setSignature(SR25519Signature signature) {
+        public void setSignature(Signature signature) {
             this.signature = signature;
         }
 
@@ -167,12 +167,27 @@ public class Extrinsic<CALL extends ExtrinsicCall> {
         public int hashCode() {
             return Objects.hash(sender, era, nonce);
         }
+
+        @Override
+        public String toString() {
+            return "TransactionInfo{" +
+                    "sender=" + sender +
+                    ", signature=" + signature +
+                    ", era=" + era +
+                    ", nonce=" + nonce +
+                    ", tip=" + tip +
+                    '}';
+        }
     }
 
-    public static class SR25519Signature {
+    public abstract static class Signature {
+
+        private final SignatureType type;
+
         private final Hash512 value;
 
-        public SR25519Signature(Hash512 value) {
+        protected Signature(SignatureType type, Hash512 value) {
+            this.type = type;
             this.value = value;
         }
 
@@ -181,21 +196,54 @@ public class Extrinsic<CALL extends ExtrinsicCall> {
         }
 
         public SignatureType getType() {
-            return SignatureType.SR25519;
+            return type;
         }
 
         @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (!(o instanceof SR25519Signature)) return false;
-            SR25519Signature that = (SR25519Signature) o;
-            return Objects.equals(value, that.value);
+        public final boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            Signature signature = (Signature) o;
+            return type == signature.type && Objects.equals(value, signature.value);
         }
 
         @Override
-        public int hashCode() {
-            return Objects.hash(value);
+        public final int hashCode() {
+            return Objects.hash(type, value);
+        }
+
+        @Override
+        public String toString() {
+            return "Signature{" +
+                    "type=" + getType() +
+                    ", value=" + value +
+                    '}';
         }
     }
 
+    public static final class SR25519Signature extends Signature {
+
+        public SR25519Signature(Hash512 value) {
+            super(SignatureType.SR25519, value);
+        }
+    }
+
+    public static final class ED25519Signature extends Signature {
+
+        public ED25519Signature(Hash512 value) {
+            super(SignatureType.ED25519, value);
+        }
+    }
+
+    @Override
+    public String toString() {
+        return "Extrinsic{" +
+                "tx=" + tx +
+                ", call=" + call +
+                '}';
+    }
 }
