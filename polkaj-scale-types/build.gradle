@@ -3,4 +3,5 @@ apply from: '../common_java_app.gradle'
 dependencies {
     api project(":polkaj-scale")
     api project(":polkaj-common-types")
+    testImplementation 'org.testng:testng:7.1.0'
 }
