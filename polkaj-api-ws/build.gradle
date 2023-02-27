@@ -9,6 +9,7 @@ compileJava {
 dependencies {
     api project(":polkaj-json-types")
     api project(":polkaj-api-base")
+    api 'org.junit.jupiter:junit-jupiter-api:5.9.2'
 
     testImplementation 'org.java-websocket:Java-WebSocket:1.5.1'
     testImplementation project(":polkaj-adapter-tests")

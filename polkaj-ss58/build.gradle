@@ -2,5 +2,6 @@ apply from: '../common_java_app.gradle'
 
 dependencies {
     api 'com.github.multiformats:java-multibase:v1.0.0'
+    api 'org.junit.jupiter:junit-jupiter-api:5.9.2'
     implementation 'org.bouncycastle:bcprov-jdk15on:1.65'
 }

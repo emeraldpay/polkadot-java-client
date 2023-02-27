@@ -2,4 +2,5 @@ apply from: '../common_java_app.gradle'
 
 dependencies {
     api project(":polkaj-ss58")
+    api 'org.junit.jupiter:junit-jupiter-api:5.9.2'
 }

@@ -5,5 +5,6 @@ dependencies {
     api project(":polkaj-ss58")
 
     api 'com.fasterxml.jackson.core:jackson-databind:2.11.0'
+    api 'org.junit.jupiter:junit-jupiter-api:5.9.2'
 
 }
