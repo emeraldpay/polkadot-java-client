@@ -73,7 +73,7 @@ public class SchnorrkelNative extends Schnorrkel {
         // define which of files bundled with Jar to extract
         String os = System.getProperty("os.name", "unknown").toLowerCase();
         if (os.contains("win")) {
-            os = "windows";
+            os = "windows/amd";
         } else if (os.contains("mac")) {
             String arch = System.getProperty("os.arch").toLowerCase();
             if (arch.equalsIgnoreCase("aarch64")) {
