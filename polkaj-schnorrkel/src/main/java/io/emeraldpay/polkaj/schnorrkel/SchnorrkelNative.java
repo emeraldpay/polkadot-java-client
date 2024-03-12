@@ -1,5 +1,7 @@
 package io.emeraldpay.polkaj.schnorrkel;
 
+import io.emeraldpay.polkaj.merlin.TranscriptData;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -55,6 +57,8 @@ public class SchnorrkelNative extends Schnorrkel {
         return result;
     }
 
+    // ====================== Mapping to the Native Library ======================
+
     private static native byte[] sign(byte[] publicKey, byte[] secretKey, byte[] message);
 
     private static native byte[] keypairFromSeed(byte[] seed);
@@ -67,7 +71,9 @@ public class SchnorrkelNative extends Schnorrkel {
 
     private static native byte[] derivePublicKeySoft(byte[] publicKey, byte[] cc);
 
-    // ====================== Mapping to the Native Library ======================
+    private static native boolean vrfVerify(byte[] publicKey, TranscriptData transcript, byte[] vrfOutput, byte[] vrfProof);
+
+    private static native byte[] vrfSign(byte[] secretKey, TranscriptData transcript);
 
     private static boolean extractAndLoadJNI() throws IOException {
         // define which of files bundled with Jar to extract
@@ -99,7 +105,6 @@ public class SchnorrkelNative extends Schnorrkel {
 
         // extract native lib to the filesystem
         InputStream lib = Schnorrkel.class.getResourceAsStream(classpathFile);
-        System.out.println(classpathFile);
         if (lib == null) {
             System.err.println("Library " + classpathFile + " is not found in the classpath");
             return false;
@@ -109,7 +114,7 @@ public class SchnorrkelNative extends Schnorrkel {
 
         Files.copy(lib, target);
         System.load(target.toFile().getAbsolutePath());
-        System.out.println("library " + classpathFile + " is loaded");
+        System.out.println("Library " + classpathFile + " is loaded");
 
         // setup JVM to delete files on exit, when possible
         target.toFile().deleteOnExit();
@@ -170,4 +175,28 @@ public class SchnorrkelNative extends Schnorrkel {
         return new Schnorrkel.PublicKey(key);
     }
 
+    @Override
+    public boolean vrfVerify(PublicKey pk, TranscriptData transcript, VrfOutputAndProof vrfOutputAndProof) {
+        return vrfVerify(
+            pk.getPublicKey(),
+            transcript,
+            vrfOutputAndProof.getOutput(),
+            vrfOutputAndProof.getProof()
+        );
+    }
+
+    @Override
+    public VrfOutputAndProof vrfSign(KeyPair keyPair, TranscriptData transcript) {
+        byte[] vrfOutputAndProofBytes = vrfSign(keyPair.getSecretKey(), transcript);
+        final int OUTPUT_LEN = VrfOutputAndProof.OUTPUT_BYTE_LEN;
+        final int PROOF_LEN = VrfOutputAndProof.PROOF_BYTE_LEN;
+
+        // effectively, split the array
+        byte[] vrfOutput = new byte[OUTPUT_LEN];
+        byte[] vrfProof = new byte[PROOF_LEN];
+        System.arraycopy(vrfOutputAndProofBytes, 0, vrfOutput, 0, OUTPUT_LEN);
+        System.arraycopy(vrfOutputAndProofBytes, OUTPUT_LEN, vrfProof, 0, PROOF_LEN);
+
+        return VrfOutputAndProof.wrap(vrfOutput, vrfProof);
+    }
 }

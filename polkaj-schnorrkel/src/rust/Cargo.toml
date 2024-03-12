@@ -6,7 +6,9 @@ version = "0.3.0"
 crate_type = ["cdylib"]
 
 [dependencies]
-jni = "0.17.0"
-schnorrkel = "0.9.1"
+robusta_jni = "0.2"
+jni = "0.21.1"
+schnorrkel = "0.11.4"
 hex = "0.4.2"
-rand = "0.7.3"
+rand = "0.8.5"
+merlin = "3.0"

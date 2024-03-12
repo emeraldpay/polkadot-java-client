@@ -2,17 +2,26 @@
 // Based on https://github.com/polkadot-js/wasm/blob/master/packages/wasm-crypto/src/sr25519.rs
 //
 
-extern crate jni;
 extern crate schnorrkel;
 extern crate hex;
 extern crate rand;
+extern crate robusta_jni;
+extern crate merlin;
 
-use jni::JNIEnv;
-use jni::objects::{JClass};
-use jni::sys::{jbyteArray, jboolean};
+mod merlin_jni;
+
+use merlin::Transcript;
+use robusta_jni::jni::objects::JObject;
+use robusta_jni::jni::JNIEnv;
+use robusta_jni::jni::objects::JClass;
+use robusta_jni::jni::sys::{jboolean, jbyteArray};
+use schnorrkel::vrf::{VRFInOut, VRFProof, VRFProofBatchable};
 use schnorrkel::{SecretKey, PublicKey, Signature, SignatureError, MiniSecretKey, ExpansionMode, Keypair};
 use schnorrkel::derive::{ChainCode, CHAIN_CODE_LENGTH, Derivation};
 use std::string::String;
+
+use merlin_jni::TranscriptData;
+use robusta_jni::convert::TryFromJavaValue;
 
 const SIGNING_CTX: &'static [u8] = b"substrate";
 
@@ -235,4 +244,104 @@ pub extern "system" fn Java_io_emeraldpay_polkaj_schnorrkel_SchnorrkelNative_der
         }
     };
     output
+}
+
+#[no_mangle]
+pub extern "system" fn Java_io_emeraldpay_polkaj_schnorrkel_SchnorrkelNative_vrfVerify(
+    env: JNIEnv,
+    _class: JClass,
+    pk_raw: jbyteArray,
+    transcript_data_raw: JObject,
+    vrf_output_raw: jbyteArray,
+    vrf_proof_raw: jbyteArray
+) -> jboolean {
+    let pk_bytes = env.convert_byte_array(pk_raw).expect("Public key bytes not provided.");
+
+    let transcript_data = match TranscriptData::try_from(transcript_data_raw, &env) {
+        Ok(data) => data,
+        Err(msg) => {
+            env.throw_new("io/emeraldpay/polkaj/schnorrkel/SchnorrkelException", msg.to_string()).unwrap();
+            return false as jboolean;
+        },
+    };
+
+    let transcript = Transcript::from(transcript_data);
+
+    let vrf_output_bytes = env.convert_byte_array(vrf_output_raw).expect("Vrf output bytes not provided.");
+
+    let vrf_proof_bytes = env.convert_byte_array(vrf_proof_raw).expect("Vrf proof bytes not provided.");
+
+    let output = match vrf_verify(&pk_bytes, transcript, &vrf_output_bytes, &vrf_proof_bytes) {
+        Ok(_) => true,
+        Err(SignatureError::EquationFalse) => false,
+        Err(err) => {
+            env.throw_new("io/emeraldpay/polkaj/schnorrkel/SchnorrkelException", err.to_string()).unwrap();
+            false
+        },
+    };
+
+    output as jboolean
+}
+
+fn vrf_verify(
+    pk_bytes: &[u8],
+    transcript: Transcript,
+    vrf_output_bytes: &[u8],
+    vrf_proof_bytes: &[u8]
+) -> Result<(), SignatureError> {
+    let signing_public_key = schnorrkel::PublicKey::from_bytes(pk_bytes)?;
+
+    // NOTE:
+    // These `from_bytes`s can only panic if `vrf_output_bytes` or `vrf_proof_bytes` are of the wrong
+    // length, which is the Java caller's responsibility. In any case, errors are properly accounted for.
+    let vrf_output = schnorrkel::vrf::VRFPreOut::from_bytes(vrf_output_bytes)?;
+    let vrf_proof = schnorrkel::vrf::VRFProof::from_bytes(&vrf_proof_bytes)?;
+
+    signing_public_key.vrf_verify(transcript, &vrf_output, &vrf_proof)?;
+    Ok(())
+}
+
+#[no_mangle]
+pub extern "system" fn Java_io_emeraldpay_polkaj_schnorrkel_SchnorrkelNative_vrfSign(
+    env: JNIEnv,
+    _class: JClass,
+    sk_raw: jbyteArray,
+    transcript_data_raw: JObject,
+) -> jbyteArray {
+    let sk_bytes = env.convert_byte_array(sk_raw).expect("Secret key bytes not provided.");
+
+    let transcript_data = match TranscriptData::try_from(transcript_data_raw, &env) {
+        Ok(data) => data,
+        Err(msg) => {
+            env.throw_new("io/emeraldpay/polkaj/schnorrkel/SchnorrkelException", msg.to_string()).unwrap();
+            return *JObject::null();
+        },
+    };
+
+    let transcript = Transcript::from(transcript_data);
+
+    match vrf_sign(&sk_bytes, transcript) {
+        Err(err) => {
+            env.throw_new("io/emeraldpay/polkaj/schnorrkel/SchnorrkelException", err.to_string()).unwrap();
+            *JObject::null()
+        },
+        Ok((VRFInOut { output, .. }, vrf_proof, _)) => {
+            let output_bytes = output.to_bytes();
+            let proof_bytes = vrf_proof.to_bytes();
+
+            // HACK:
+            //  Constructing a Java class instance from Rust is a bit of a pain.
+            //  So for now, we're just concatenating the two byte arrays and returning them as one as a hacky serialization workaround.
+            //  If, however, in future we'd want to expand this to a more complex data structure, additional work would be needed.
+            let output_and_proof: Vec<u8> = output_bytes.iter().chain(proof_bytes.iter()).map(|v| *v).collect();
+            env.byte_array_from_slice(output_and_proof.as_slice())
+                .expect("Couldn't create result")
+        },
+    }
+}
+
+fn vrf_sign(sk_bytes: &[u8], transcript: Transcript) -> Result<(VRFInOut, VRFProof, VRFProofBatchable), SignatureError> {
+    let sk = SecretKey::from_ed25519_bytes(&sk_bytes)?;
+    let keypair = sk.to_keypair();
+    Ok(keypair.vrf_sign(transcript))
 }

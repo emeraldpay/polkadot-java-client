@@ -1,18 +1,9 @@
 package io.emeraldpay.polkaj.schnorrkel;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodType;
-import java.lang.invoke.VarHandle;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.security.NoSuchAlgorithmException;
+import io.emeraldpay.polkaj.merlin.TranscriptData;
+
 import java.security.SecureRandom;
 import java.util.Arrays;
-import java.util.logging.MemoryHandler;
 
 /**
  * Schnorrkel implements Schnorr signature on Ristretto compressed Ed25519 points, as well as related protocols like
@@ -141,6 +132,10 @@ public abstract class Schnorrkel {
      */
     public abstract Schnorrkel.PublicKey derivePublicKeySoft(Schnorrkel.PublicKey base, Schnorrkel.ChainCode chainCode) throws SchnorrkelException;
 
+    public abstract boolean vrfVerify(PublicKey sk, TranscriptData transcript, VrfOutputAndProof vrfOutputAndProof);
+
+    public abstract VrfOutputAndProof vrfSign(KeyPair keyPair, TranscriptData transcript);
+
     // ====================== Supporting Classes ======================
 
     /**
@@ -248,5 +243,4 @@ public abstract class Schnorrkel {
             return Arrays.hashCode(value);
         }
     }
-
 }
