@@ -1,5 +1,9 @@
 buildscript {
 
+    repositories {
+        maven { url "https://repo.grails.org/grails/core/" }
+    }
+
     dependencies {
         classpath 'com.netflix.nebula:gradle-aggregate-javadocs-plugin:3.0.1'
     }
@@ -50,9 +54,9 @@ task syncJars(type: Sync) {
 
 // Skip Bintray for the root module
 bintray {
-    dryRun=true
-    publish=false
-    override=true
+    dryRun = true
+    publish = false
+    override = true
     publications = []
     configurations = []
     pkg {

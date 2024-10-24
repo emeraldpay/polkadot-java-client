@@ -3,7 +3,7 @@ name = "polkaj-schnorrkel"
 version = "0.3.0"
 
 [lib]
-crate_type = ["cdylib"]
+crate-type = ["cdylib"]
 
 [dependencies]
 robusta_jni = "0.2"
