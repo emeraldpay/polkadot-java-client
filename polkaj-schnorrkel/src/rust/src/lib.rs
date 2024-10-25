@@ -15,8 +15,8 @@ use robusta_jni::jni::objects::JObject;
 use robusta_jni::jni::JNIEnv;
 use robusta_jni::jni::objects::JClass;
 use robusta_jni::jni::sys::{jboolean, jbyteArray};
-use schnorrkel::vrf::{VRFInOut, VRFPreOut, VRFProof, VRFProofBatchable, VRFSigningTranscript};
 use schnorrkel::{SecretKey, PublicKey, Signature, SignatureError, MiniSecretKey, ExpansionMode, Keypair};
+use schnorrkel::vrf::{VRFInOut, VRFPreOut, VRFProof, VRFProofBatchable, VRFSigningTranscript};
 use schnorrkel::context::SigningTranscript;
 use schnorrkel::derive::{ChainCode, CHAIN_CODE_LENGTH, Derivation};
 use std::string::String;
@@ -107,6 +107,7 @@ pub fn derive_pubkey_soft(pubkey: &[u8], cc: &[u8]) -> Result<Vec<u8>, String> {
 #[no_mangle]
 pub extern "system" fn Java_io_emeraldpay_polkaj_schnorrkel_SchnorrkelNative_sign
 (env: JNIEnv, _class: JClass, pubkey: jbyteArray, sk: jbyteArray, message: jbyteArray) -> jbyteArray {
+
     let message = env.convert_byte_array(message)
         .expect("Message is not provided");
     let sk = env.convert_byte_array(sk)
@@ -118,7 +119,7 @@ pub extern "system" fn Java_io_emeraldpay_polkaj_schnorrkel_SchnorrkelNative_sig
         Ok(signature) => {
             env.byte_array_from_slice(signature.as_slice())
                 .expect("Couldn't create result")
-        }
+        },
         Err(msg) => {
             let none = env.new_byte_array(0)
                 .expect("Couldn't create empty result");
@@ -132,6 +133,7 @@ pub extern "system" fn Java_io_emeraldpay_polkaj_schnorrkel_SchnorrkelNative_sig
 #[no_mangle]
 pub extern "system" fn Java_io_emeraldpay_polkaj_schnorrkel_SchnorrkelNative_verify
 (env: JNIEnv, _class: JClass, signature: jbyteArray, message: jbyteArray, pubkey: jbyteArray) -> jboolean {
+
     let message = env.convert_byte_array(message)
         .expect("Message is not provided");
     let pubkey = env.convert_byte_array(pubkey)
@@ -142,7 +144,7 @@ pub extern "system" fn Java_io_emeraldpay_polkaj_schnorrkel_SchnorrkelNative_ver
     let output = match verify(signature.as_slice(), message.as_slice(), pubkey.as_slice()) {
         Ok(valid) => {
             valid as jboolean
-        }
+        },
         Err(msg) => {
             let none = false as jboolean;
             env.throw_new("io/emeraldpay/polkaj/schnorrkel/SchnorrkelException", msg).unwrap();
@@ -155,6 +157,7 @@ pub extern "system" fn Java_io_emeraldpay_polkaj_schnorrkel_SchnorrkelNative_ver
 #[no_mangle]
 pub extern "system" fn Java_io_emeraldpay_polkaj_schnorrkel_SchnorrkelNative_keypairFromSeed
 (env: JNIEnv, _class: JClass, seed: jbyteArray) -> jbyteArray {
+
     let seed = env.convert_byte_array(seed)
         .expect("Seed is not provided");
 
@@ -162,7 +165,7 @@ pub extern "system" fn Java_io_emeraldpay_polkaj_schnorrkel_SchnorrkelNative_key
         Ok(value) => {
             env.byte_array_from_slice(value.as_slice())
                 .expect("Couldn't create result")
-        }
+        },
         Err(msg) => {
             let none = env.new_byte_array(0)
                 .expect("Couldn't create empty result");
@@ -176,6 +179,7 @@ pub extern "system" fn Java_io_emeraldpay_polkaj_schnorrkel_SchnorrkelNative_key
 #[no_mangle]
 pub extern "system" fn Java_io_emeraldpay_polkaj_schnorrkel_SchnorrkelNative_deriveHard
 (env: JNIEnv, _class: JClass, keypair: jbyteArray, cc: jbyteArray) -> jbyteArray {
+
     let keypair = env.convert_byte_array(keypair)
         .expect("Keypair is not provided");
     let cc = env.convert_byte_array(cc)
@@ -185,7 +189,7 @@ pub extern "system" fn Java_io_emeraldpay_polkaj_schnorrkel_SchnorrkelNative_der
         Ok(value) => {
             env.byte_array_from_slice(value.as_slice())
                 .expect("Couldn't create result")
-        }
+        },
         Err(msg) => {
             let none = env.new_byte_array(0)
                 .expect("Couldn't create empty result");
@@ -199,6 +203,7 @@ pub extern "system" fn Java_io_emeraldpay_polkaj_schnorrkel_SchnorrkelNative_der
 #[no_mangle]
 pub extern "system" fn Java_io_emeraldpay_polkaj_schnorrkel_SchnorrkelNative_deriveSoft
 (env: JNIEnv, _class: JClass, keypair: jbyteArray, cc: jbyteArray) -> jbyteArray {
+
     let keypair = env.convert_byte_array(keypair)
         .expect("Keypair is not provided");
     let cc = env.convert_byte_array(cc)
@@ -208,7 +213,7 @@ pub extern "system" fn Java_io_emeraldpay_polkaj_schnorrkel_SchnorrkelNative_der
         Ok(value) => {
             env.byte_array_from_slice(value.as_slice())
                 .expect("Couldn't create result")
-        }
+        },
         Err(msg) => {
             let none = env.new_byte_array(0)
                 .expect("Couldn't create empty result");
@@ -222,6 +227,7 @@ pub extern "system" fn Java_io_emeraldpay_polkaj_schnorrkel_SchnorrkelNative_der
 #[no_mangle]
 pub extern "system" fn Java_io_emeraldpay_polkaj_schnorrkel_SchnorrkelNative_derivePublicKeySoft
 (env: JNIEnv, _class: JClass, pubkey: jbyteArray, cc: jbyteArray) -> jbyteArray {
+
     let pubkey = env.convert_byte_array(pubkey)
         .expect("Keypair is not provided");
     let cc = env.convert_byte_array(cc)
@@ -231,7 +237,7 @@ pub extern "system" fn Java_io_emeraldpay_polkaj_schnorrkel_SchnorrkelNative_der
         Ok(value) => {
             env.byte_array_from_slice(value.as_slice())
                 .expect("Couldn't create result")
-        }
+        },
         Err(msg) => {
             let none = env.new_byte_array(0)
                 .expect("Couldn't create empty result");
@@ -249,7 +255,7 @@ pub extern "system" fn Java_io_emeraldpay_polkaj_schnorrkel_SchnorrkelNative_vrf
     pk_raw: jbyteArray,
     transcript_data_raw: JObject,
     vrf_output_raw: jbyteArray,
-    vrf_proof_raw: jbyteArray,
+    vrf_proof_raw: jbyteArray
 ) -> jboolean {
     let pk_bytes = env.convert_byte_array(pk_raw).expect("Public key bytes not provided.");
 
@@ -258,7 +264,7 @@ pub extern "system" fn Java_io_emeraldpay_polkaj_schnorrkel_SchnorrkelNative_vrf
         Err(msg) => {
             env.throw_new("io/emeraldpay/polkaj/schnorrkel/SchnorrkelException", msg.to_string()).unwrap();
             return false as jboolean;
-        }
+        },
     };
 
     let transcript = Transcript::from(transcript_data);
@@ -283,7 +289,7 @@ fn vrf_verify(
     pk_bytes: &[u8],
     transcript: Transcript,
     vrf_output_bytes: &[u8],
-    vrf_proof_bytes: &[u8],
+    vrf_proof_bytes: &[u8]
 ) -> Result<(), SignatureError> {
     let signing_public_key = schnorrkel::PublicKey::from_bytes(pk_bytes)?;
 
@@ -320,7 +326,7 @@ pub extern "system" fn Java_io_emeraldpay_polkaj_schnorrkel_SchnorrkelNative_vrf
         Err(err) => {
             env.throw_new("io/emeraldpay/polkaj/schnorrkel/SchnorrkelException", err.to_string()).unwrap();
             *JObject::null()
-        }
+        },
         Ok((VRFInOut { output, .. }, vrf_proof, _)) => {
             let output_bytes = output.to_bytes();
             let proof_bytes = vrf_proof.to_bytes();
@@ -374,7 +380,6 @@ pub extern "system" fn Java_io_emeraldpay_polkaj_schnorrkel_SchnorrkelNative_mak
     };
 
     let transcript = Transcript::from(transcript_data);
-    // let transcript = Malleable(transcript);
 
     let vrf_output_bytes = env.convert_byte_array(vrf_output_bytes)
         .expect("Invalid pre-output");
@@ -400,7 +405,7 @@ pub extern "system" fn Java_io_emeraldpay_polkaj_schnorrkel_SchnorrkelNative_mak
                 ).unwrap();
                 *JObject::null()
             }
-        }
+        },
         Err(e) => {
             env.throw_new(
                 "io/emeraldpay/polkaj/schnorrkel/SchnorrkelException",
