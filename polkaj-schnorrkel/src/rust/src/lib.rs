@@ -26,14 +26,14 @@ use std::string::String;
 use merlin_jni::TranscriptData;
 use robusta_jni::convert::TryFromJavaValue;
 
-const SIGNING_CTX: &'static [u8] = b"substrate";
-const AUTHORING_SCORE_VRF_CONTEXT: &'static [u8] = b"substrate-babe-vrf";
+const SIGNING_CTX: &[u8] = b"substrate";
+const AUTHORING_SCORE_VRF_CONTEXT: &[u8] = b"substrate-babe-vrf";
 
 /// ChainCode construction helper
 fn create_cc(data: &[u8]) -> ChainCode {
     let mut cc = [0u8; CHAIN_CODE_LENGTH];
 
-    cc.copy_from_slice(&data);
+    cc.copy_from_slice(data);
 
     ChainCode(cc)
 }
@@ -77,7 +77,7 @@ pub fn derive_keypair_hard(pair: &[u8], cc: &[u8]) -> Result<Vec<u8>, String> {
     let result = Keypair::from_half_ed25519_bytes(pair)
         .map_err(|e| e.to_string())?
         .secret
-        .hard_derive_mini_secret_key(Some(create_cc(cc)), &[])
+        .hard_derive_mini_secret_key(Some(create_cc(cc)), [])
         .0
         .expand_to_keypair(ExpansionMode::Ed25519)
         .to_half_ed25519_bytes()
@@ -88,7 +88,7 @@ pub fn derive_keypair_hard(pair: &[u8], cc: &[u8]) -> Result<Vec<u8>, String> {
 pub fn derive_keypair_soft(pair: &[u8], cc: &[u8]) -> Result<Vec<u8>, String> {
     let result = Keypair::from_half_ed25519_bytes(pair)
         .map_err(|e| e.to_string())?
-        .derived_key_simple(create_cc(cc), &[])
+        .derived_key_simple(create_cc(cc), [])
         .0
         .to_half_ed25519_bytes()
         .to_vec();
@@ -98,7 +98,7 @@ pub fn derive_keypair_soft(pair: &[u8], cc: &[u8]) -> Result<Vec<u8>, String> {
 pub fn derive_pubkey_soft(pubkey: &[u8], cc: &[u8]) -> Result<Vec<u8>, String> {
     let result = PublicKey::from_bytes(pubkey)
         .map_err(|e| e.to_string())?
-        .derived_key_simple(create_cc(cc), &[])
+        .derived_key_simple(create_cc(cc), [])
         .0
         .to_bytes()
         .to_vec();
@@ -336,7 +336,7 @@ fn vrf_verify(
     // These `from_bytes`s can only panic if `vrf_output_bytes` or `vrf_proof_bytes` are of the wrong
     // length, which is the Java caller's responsibility. In any case, errors are properly accounted for.
     let vrf_output = schnorrkel::vrf::VRFPreOut::from_bytes(vrf_output_bytes)?;
-    let vrf_proof = schnorrkel::vrf::VRFProof::from_bytes(&vrf_proof_bytes)?;
+    let vrf_proof = schnorrkel::vrf::VRFProof::from_bytes(vrf_proof_bytes)?;
 
     signing_public_key.vrf_verify(transcript, &vrf_output, &vrf_proof)?;
     Ok(())
@@ -387,7 +387,7 @@ pub extern "system" fn Java_io_emeraldpay_polkaj_schnorrkel_SchnorrkelNative_vrf
             let output_and_proof: Vec<u8> = output_bytes
                 .iter()
                 .chain(proof_bytes.iter())
-                .map(|v| *v)
+                .copied()
                 .collect();
             env.byte_array_from_slice(output_and_proof.as_slice())
                 .expect("Couldn't create result")
@@ -399,7 +399,7 @@ fn vrf_sign(
     sk_bytes: &[u8],
     transcript: Transcript,
 ) -> Result<(VRFInOut, VRFProof, VRFProofBatchable), SignatureError> {
-    let sk = SecretKey::from_ed25519_bytes(&sk_bytes)?;
+    let sk = SecretKey::from_ed25519_bytes(sk_bytes)?;
     let keypair = sk.to_keypair();
     Ok(keypair.vrf_sign(transcript))
 }
