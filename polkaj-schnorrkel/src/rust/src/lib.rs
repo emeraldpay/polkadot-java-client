@@ -352,8 +352,8 @@ fn make_bytes<T>(pk_bytes: &[u8], context: &[u8], vrf_input: T, vrf_pre_output: 
 where
     T: VRFSigningTranscript + SigningTranscript,
 {
-    let pubkey = PublicKey::from_bytes(pk_bytes)?;
-    let inout = vrf_pre_output.attach_input_hash(&pubkey, vrf_input)?;
+    let pk = PublicKey::from_bytes(pk_bytes)?;
+    let inout = vrf_pre_output.attach_input_hash(&pk, vrf_input)?;
     Ok(inout.make_bytes::<[u8; 16]>(context))
 }
 
@@ -361,14 +361,14 @@ where
 pub extern "system" fn Java_io_emeraldpay_polkaj_schnorrkel_SchnorrkelNative_makeBytes(
     env: JNIEnv,
     _class: JClass,
-    pk: jbyteArray,
-    transcript: JObject,
+    pk_bytes: jbyteArray,
+    transcript_data: JObject,
     vrf_output_bytes: jbyteArray,
 ) -> jbyteArray {
-    let pk = env.convert_byte_array(pk)
+    let pk_bytes = env.convert_byte_array(pk_bytes)
         .expect("Public key bytes not provided.");
 
-    let transcript_data = match TranscriptData::try_from(transcript, &env) {
+    let transcript_data = match TranscriptData::try_from(transcript_data, &env) {
         Ok(data) => data,
         Err(msg) => {
             env.throw_new(
@@ -395,7 +395,7 @@ pub extern "system" fn Java_io_emeraldpay_polkaj_schnorrkel_SchnorrkelNative_mak
         }
     };
 
-    match make_bytes(&pk, AUTHORING_SCORE_VRF_CONTEXT, transcript, &vrf_output_bytes) {
+    match make_bytes(&pk_bytes, AUTHORING_SCORE_VRF_CONTEXT, transcript, &vrf_output_bytes) {
         Ok(bytes) => match env.byte_array_from_slice(&bytes) {
             Ok(jbytes) => jbytes,
             Err(_) => {
