@@ -1,5 +1,9 @@
 buildscript {
 
+    repositories {
+        maven { url "https://repo.grails.org/grails/core/" }
+    }
+
     dependencies {
         classpath 'com.netflix.nebula:gradle-aggregate-javadocs-plugin:3.0.1'
     }
@@ -15,7 +19,7 @@ apply plugin: 'jacoco'
 
 allprojects {
     group = 'io.emeraldpay.polkaj'
-    version = "0.5.2-SNAPSHOT"
+    version = "0.5.3-SNAPSHOT"
 
     repositories {
         mavenLocal()
@@ -50,9 +54,9 @@ task syncJars(type: Sync) {
 
 // Skip Bintray for the root module
 bintray {
-    dryRun=true
-    publish=false
-    override=true
+    dryRun = true
+    publish = false
+    override = true
     publications = []
     configurations = []
     pkg {

@@ -136,6 +136,8 @@ public abstract class Schnorrkel {
 
     public abstract VrfOutputAndProof vrfSign(KeyPair keyPair, TranscriptData transcript);
 
+    public abstract byte[] makeBytes(KeyPair keyPair, TranscriptData transcript, VrfOutputAndProof vrfOutputAndProof);
+
     // ====================== Supporting Classes ======================
 
     /**

@@ -75,6 +75,8 @@ public class SchnorrkelNative extends Schnorrkel {
 
     private static native byte[] vrfSign(byte[] secretKey, TranscriptData transcript);
 
+    private static native byte[] makeBytes(byte[] publicKey, TranscriptData transcript, byte[] vrfOutput);
+
     private static boolean extractAndLoadJNI() throws IOException {
         // define which of files bundled with Jar to extract
         String os = System.getProperty("os.name", "unknown").toLowerCase();
@@ -198,5 +200,12 @@ public class SchnorrkelNative extends Schnorrkel {
         System.arraycopy(vrfOutputAndProofBytes, OUTPUT_LEN, vrfProof, 0, PROOF_LEN);
 
         return VrfOutputAndProof.wrap(vrfOutput, vrfProof);
+    }
+
+    @Override
+    public byte[] makeBytes(KeyPair keyPair, TranscriptData transcript, VrfOutputAndProof vrfOutputAndProof) {
+        byte[] publicKey = keyPair.getPublicKey();
+        byte[] vrfOutput = vrfOutputAndProof.getOutput();
+        return makeBytes(publicKey, transcript, vrfOutput);
     }
 }
