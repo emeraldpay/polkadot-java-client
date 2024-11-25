@@ -203,9 +203,8 @@ public class SchnorrkelNative extends Schnorrkel {
     }
 
     @Override
-    public byte[] makeBytes(KeyPair keyPair, TranscriptData transcript, VrfOutputAndProof vrfOutputAndProof) {
-        byte[] publicKey = keyPair.getPublicKey();
+    public byte[] makeBytes(Schnorrkel.PublicKey publicKey, TranscriptData transcript, VrfOutputAndProof vrfOutputAndProof) {
         byte[] vrfOutput = vrfOutputAndProof.getOutput();
-        return makeBytes(publicKey, transcript, vrfOutput);
+        return makeBytes(publicKey.getPublicKey(), transcript, vrfOutput);
     }
 }
